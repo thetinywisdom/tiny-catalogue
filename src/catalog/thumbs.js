@@ -10,23 +10,34 @@ import { setDetail } from '../lib/shapes.js';
 // change shape and their pictures should be redrawn.
 
 const VERSION = 21; // 21: long rooms with fillFrame use the box, not the bounding sphere
-const SIZE = 64; // drawn small, shown scaled up with crisp pixels
+const PS1_SIZE = 64; // drawn small, shown scaled up with crisp pixels
+const CLEAN_SIZE = 160; // the smooth look is drawn larger so the cards stay sharp
 const mem = new Map();
 const queue = [];
 let busy = false;
 let stage = null;
+let token = 0;
 
-const keyOf = (id, params) => `tcb.thumb.v${VERSION}:${activePalette()}:${id}:${JSON.stringify(params ?? {})}`; // one set of pictures per palette
+const lookOf = (style) => (style.ps1 === false ? 'clean' : 'ps1');
+const sizeOf = (style) => (style.ps1 === false ? CLEAN_SIZE : PS1_SIZE);
+const keyOf = (style, id, params) => `tcb.thumb.v${VERSION}:${lookOf(style)}:${activePalette()}:${id}:${JSON.stringify(params ?? {})}`;
+
+/** Drop queued pictures. Call this when the look changes, then ask again. */
+export function cancelThumbs() {
+  token++;
+  queue.length = 0;
+  busy = false;
+}
 
 function getStage(renderer, style) {
   if (stage) return stage;
   const scene = new THREE.Scene();
   style.createLights({}).objects.forEach((o) => scene.add(o));
-  const rt = new THREE.WebGLRenderTarget(SIZE, SIZE, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
+  const rt = new THREE.WebGLRenderTarget(PS1_SIZE, PS1_SIZE, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
   rt.texture.colorSpace = THREE.SRGBColorSpace; // store display colours, like the screen
   const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = SIZE;
-  stage = { scene, rt, camera: new THREE.PerspectiveCamera(30, 1, 0.05, 2000), canvas, pixels: new Uint8Array(SIZE * SIZE * 4) };
+  canvas.width = canvas.height = PS1_SIZE;
+  stage = { scene, rt, camera: new THREE.PerspectiveCamera(30, 1, 0.05, 2000), canvas, pixels: new Uint8Array(PS1_SIZE * PS1_SIZE * 4), size: PS1_SIZE };
   return stage;
 }
 
@@ -55,6 +66,20 @@ function frameBox(camera, box, dir, margin) {
 /** Draw one asset now and return a PNG data URL (transparent background). */
 function draw(renderer, style, id, params) {
   const s = getStage(renderer, style);
+  const size = sizeOf(style);
+  if (s.size !== size) {
+    s.size = size;
+    s.rt.setSize(size, size);
+    s.canvas.width = s.canvas.height = size;
+    s.pixels = new Uint8Array(size * size * 4);
+  }
+  // Crisp pixels for the PS1 cards. The smooth look is filtered so a 160 px
+  // picture can scale up without looking blocky. Sign textures stay nearest.
+  const filter = style.ps1 === false ? THREE.LinearFilter : THREE.NearestFilter;
+  s.rt.texture.magFilter = filter;
+  s.rt.texture.minFilter = filter;
+  s.rt.texture.generateMipmaps = false;
+  s.rt.texture.needsUpdate = true;
   setDetail(style.detail ?? 1);
   const obj = createAsset(id, params, style);
   setDetail(1);
@@ -84,11 +109,11 @@ function draw(renderer, style, id, params) {
   const prevScissor = renderer.getScissorTest();
   renderer.setScissorTest(false);
   renderer.setClearColor(0x000000, 0);
-  style.prepareRender?.(SIZE, SIZE);
+  if (style.ps1 !== false) style.prepareRender?.(size, size);
   renderer.setRenderTarget(s.rt);
   renderer.clear();
   renderer.render(s.scene, s.camera);
-  renderer.readRenderTargetPixels(s.rt, 0, 0, SIZE, SIZE, s.pixels);
+  renderer.readRenderTargetPixels(s.rt, 0, 0, size, size, s.pixels);
   renderer.setRenderTarget(prevTarget);
   renderer.setClearColor(prevClear, prevAlpha);
   renderer.setScissorTest(prevScissor);
@@ -97,8 +122,8 @@ function draw(renderer, style, id, params) {
   obj.traverse((o) => o.geometry?.dispose());
   // flip rows (GL reads bottom-up) into a canvas
   const ctx = s.canvas.getContext('2d');
-  const img = ctx.createImageData(SIZE, SIZE);
-  for (let y = 0; y < SIZE; y++) img.data.set(s.pixels.subarray((SIZE - 1 - y) * SIZE * 4, (SIZE - y) * SIZE * 4), y * SIZE * 4);
+  const img = ctx.createImageData(size, size);
+  for (let y = 0; y < size; y++) img.data.set(s.pixels.subarray((size - 1 - y) * size * 4, (size - y) * size * 4), y * size * 4);
   ctx.putImageData(img, 0, 0);
   return s.canvas.toDataURL('image/png');
 }
@@ -108,7 +133,7 @@ function draw(renderer, style, id, params) {
  * is already known, otherwise soon (drawn in the background, then saved).
  */
 export function thumbInto(img, renderer, style, id, params) {
-  const key = keyOf(id, params);
+  const key = keyOf(style, id, params);
   let url = mem.get(key);
   if (!url) { try { url = localStorage.getItem(key); } catch { /* storage blocked */ } }
   if (url) { mem.set(key, url); img.src = url; return; }
@@ -120,12 +145,16 @@ function pump(renderer, style) {
   const job = queue.shift();
   if (!job) { busy = false; return; }
   busy = true;
+  const ticket = token;
   requestAnimationFrame(() => {
+    if (ticket !== token) return;
     let url = mem.get(job.key);
     if (!url) {
       try { url = draw(renderer, style, job.id, job.params); } catch (e) { console.warn('thumbnail', job.id, e); }
+      if (ticket !== token) return;
       if (url) { mem.set(job.key, url); try { localStorage.setItem(job.key, url); } catch { /* full or blocked: keep in memory */ } }
     }
+    if (ticket !== token) return;
     if (url) job.img.src = url;
     pump(renderer, style);
   });

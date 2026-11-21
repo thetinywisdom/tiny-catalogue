@@ -57,6 +57,21 @@ softer shade (`render/ps1.js` reads the alpha the materials write). Pixel
 size follows the screen (`style.pixelScale`, short side / 300, at most 2;
 phones use 1).
 
+**PS1 toggle** (header, next to Colours). Default on, saved in
+`localStorage` as `tinycity.ps1` (`'0'` is off). `style.setPs1(on)`:
+
+- On: today's look. `detail` 0.3, vertex snap, low-res target, 15-bit dither,
+  pixel outlines.
+- Off: `detail` 1, `pixelScale` 0 (the renderer draws straight to the screen
+  at full resolution, with the canvas antialiasing and device pixel ratio),
+  snap uniform 0, no dither, no outlines. Palette colours stay. Painted
+  signs, facades, interiors, manholes and nobori stay nearest-filtered so
+  the painted pixels do not smear. Wheels stay 8-sided (that is the model,
+  not the detail multiplier).
+
+Toggling rebuilds the open item and redraws thumbnails. No page reload.
+`window.__cc.setPs1(on)`.
+
 Palette: `src/styles/palette.js`. The 🎨 button picks one of seven. The page
 reloads. Buildings still snap to greys, brick and wood. Skin is not snapped.
 Golden hour is the default (`localStorage` key `tinycity.palette`).
@@ -122,7 +137,7 @@ No unit test suite. Before committing:
   to the same parameters twice. Phone width 390×844 still scrolls the panel.
 - `window.__cc`: `state`, `setView('catalog'|'item')`, `openItem(id, params)`,
   `CATALOG`, `ASSETS`, `resolve(id, params)`, `createAsset`, `orbit(az)`,
-  `human`, `itemCell`.
+  `human`, `itemCell`, `setPs1(on)` (PS1 look, no reload).
 
 Check desktop (1280×720) and phone (390×844).
 

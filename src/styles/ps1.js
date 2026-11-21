@@ -44,6 +44,8 @@ export function createPs1Style({
   blobShadows = false,
 }) {
   const snapRes = { value: new THREE.Vector2(320, 240) };
+  // 1 = snap vertices to the PS1 grid. 0 = leave them (the clean render).
+  const snapOn = { value: 1 };
   const cache = new Map();
 
   const blobMaterial = new THREE.MeshBasicMaterial({
@@ -55,6 +57,8 @@ export function createPs1Style({
     id,
     label,
     background,
+    /** PS1 treatment on. Off is a smooth full-resolution render at detail 1. */
+    ps1: true,
     detail: 0.3,
     fog,
 
@@ -67,11 +71,25 @@ export function createPs1Style({
     setOption() { /* read live from options */ },
 
     /**
-     * Screen px per picture pixel. Small screens get finer pixels: a phone
-     * (short side under 600 px) draws at 1, so the picture keeps ~400 rows
-     * instead of ~200 (owner: on a phone everything was black lines).
+     * Turn the PS1 treatment on or off. Off: detail 1, no vertex snap.
+     * pixelScale becomes 0, so the renderer draws straight to the screen
+     * (no low-res target, dither or outlines). Palette colours stay.
+     * Callers rebuild geometry and thumbnails; materials update live.
+     */
+    setPs1(on) {
+      this.ps1 = !!on;
+      this.detail = this.ps1 ? 0.3 : 1;
+      snapOn.value = this.ps1 ? 1 : 0;
+    },
+
+    /**
+     * Screen px per picture pixel. 0 means "draw at the screen's own
+     * resolution" (the clean render). With PS1 on, small screens get finer
+     * pixels: a phone (short side under 600 px) draws at 1, so the picture
+     * keeps ~400 rows instead of ~200 (owner: on a phone everything was black lines).
      */
     get pixelScale() {
+      if (!this.ps1) return 0;
       const base = this.options.pixelSize.value;
       const short = typeof window === 'undefined' ? 1000 : Math.min(window.innerWidth, window.innerHeight);
       return Math.max(1, Math.min(base, Math.floor(short / 300)));
@@ -107,12 +125,15 @@ export function createPs1Style({
         if (role === 'light') { m.emissive = color.clone(); m.emissiveIntensity = map ? 0.12 : 0.55; }
         m.onBeforeCompile = (shader) => {
           shader.uniforms.snapRes = snapRes;
-          shader.vertexShader = 'uniform vec2 snapRes;\n' + shader.vertexShader.replace(
+          shader.uniforms.snapOn = snapOn;
+          shader.vertexShader = 'uniform vec2 snapRes;\nuniform float snapOn;\n' + shader.vertexShader.replace(
             '#include <project_vertex>',
             `#include <project_vertex>
-             vec4 snapped = gl_Position;
-             snapped.xy = floor( snapped.xy / snapped.w * snapRes * 0.5 + 0.5 ) / ( snapRes * 0.5 ) * snapped.w;
-             gl_Position = snapped;`,
+             if (snapOn > 0.5) {
+               vec4 snapped = gl_Position;
+               snapped.xy = floor( snapped.xy / snapped.w * snapRes * 0.5 + 0.5 ) / ( snapRes * 0.5 ) * snapped.w;
+               gl_Position = snapped;
+             }`,
           );
         };
         m.customProgramCacheKey = () => 'ps1-snap';
