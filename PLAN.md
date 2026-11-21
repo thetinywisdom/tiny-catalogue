@@ -17,7 +17,7 @@ renderer. People stay faceless. Cats stay faceless.
 
 | Area | Decision |
 |---|---|
-| App | Catalogue only. No mode nav. 🎨 Colours stays. |
+| App | Catalogue only. No mode nav. 🎨 Colours stays. The list is grouped (Buildings, Street & props, Nature, Vehicles, Characters, Rooms, Areas & Blocks) with search, chips, favourites and a hash for the current list. |
 | Look | PS1 by default, one palette at a time (Golden hour). The header PS1 button turns the treatment off: full resolution, detail 1, no dither, outlines or vertex snap. Colours stay on the palette. The choice is saved (`tinycity.ps1`). Building colours stay natural greys, brick and wood, except where a catalogue piece already uses `paint` (European houses, signs). |
 | People | Catalogue tiles, edited in the item panel (chips, sliders, colour swatches, 🎲 New look). Seed 0 is that tile's starter. Any other seed rerolls hair, clothes, colours, build and a little of the size with `mulberry32`, and keeps the tile's body type. Explicit edits sit on top of the seed until the next New look. |
 | Faces | No eyes, mouth, nose or brows on people. No faces on cats. Glasses, masks and beards stay: they are accessories, not faces. |
@@ -65,6 +65,13 @@ renderer. People stay faceless. Cats stay faceless.
    catalogue pieces, people and cat counts. 🎲 starts from one of the six
    area generators. Blocks save in this browser and export as JSON.
    `buildUserBlock` loads that JSON the way `createAreaBlock` loads an area.
+9. **Finding items.** Seven groups instead of one scrolling row of tabs.
+   Rooms nests the 16 kits, then furniture, fixtures, small items and decor.
+   Search (`/`) looks across every group by name, id and tags. Chips cover
+   indoor or outdoor, footprint size, Japanese or European, and seed
+   variations. Favourites and Recently used stay in this browser. The hash
+   stores the list. Areas & Blocks opens the Areas cards, and Blocks beside
+   it opens the block maker.
 
 The asset library was copied from Tiny City Builder (`thetinywisdom/character-creator`).
 That history (town generation, crowd, weather, interactions) is not in this
@@ -76,13 +83,16 @@ Only when the owner asks.
 
 - More people tiles, if a look should be its own card rather than a setting.
 - More buildings or props, in the same catalogue pattern.
+- A closer thumbnail crop for flat pieces (a rug, a manhole). Cards already
+  frame each piece at the shared 3/4 angle. Changing that would redraw every
+  cached picture, so it was left alone.
 
 ## Known issues
 
 - The item panel on a phone is a bottom sheet, so a person is previewed in
   the top half. The sheet scrolls.
-- Changing the palette reloads the page (the whole scene is rebuilt). It
-  comes back to the same tab, and to the open item if there was one.
+- Changing the palette reloads the page (the whole scene is rebuilt). The
+  hash brings back the same list, and the open item comes back too.
 
 ## Open questions
 

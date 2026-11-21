@@ -4,6 +4,7 @@ import { lightingPresets, style } from './styles/index.js';
 import { Cell } from './viewer/Cell.js';
 import { createPs1Renderer } from './render/ps1.js';
 import { ASSETS, CATALOG, createAsset } from './catalog/index.js';
+import { TAGS, createBrowser, loadFavs, loadRecent, parseHash, rememberRecent, saveFavs, serializeHash, toggleTag } from './catalog/browse.js';
 import { createBlockMaker } from './catalog/blockMaker.js';
 import { buildUserBlock } from './catalog/blocks.js';
 import { BLOCK_SIZE, createAreaBlock } from './catalog/areas.js';
@@ -79,10 +80,18 @@ const TABS = [
 ];
 const catalogEl = document.querySelector('#catalog');
 const itemEl = document.querySelector('#item');
+const searchInput = document.querySelector('#catSearch');
+const searchClear = document.querySelector('#catSearchClear');
 const items = ASSETS.filter((a) => a.group);
-let catTab = 'all';
+// Leaf tabs stay in TABS. Grouping, tags and the hash live in catalog/browse.js.
+// A tab id or label containing "block" is listed under Areas & Blocks.
+const browser = createBrowser(items, TABS);
+let favIds = loadFavs();
+let recentIds = loadRecent();
+let nav = browser.normalize(parseHash(location.hash));
 let selected = null; // { id, params }
 let itemCell = null;
+const favSet = () => new Set(favIds);
 
 const HUMAN_ANIMS = ['Still', 'Walk', 'Run'];
 const CAT_ANIMS = ['Still', 'Walk', 'Run', 'Sit', 'Loaf', 'Sleep'];
@@ -107,22 +116,71 @@ function usesRoomSeed(a) {
   return !!(a.seedInput || a.seedControl || (a.id.endsWith('.room') && 'seed' in (a.params ?? {})));
 }
 
+function chip(label, count, extra = '') {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = extra;
+  b.append(document.createTextNode(label));
+  if (count != null) {
+    const n = document.createElement('span');
+    n.className = 'n';
+    n.textContent = String(count);
+    b.append(n);
+  }
+  return b;
+}
+
+function commit(next, how = 'push') {
+  const norm = browser.normalize(next);
+  const hash = serializeHash(norm);
+  const same = hash === serializeHash(nav);
+  nav = norm;
+  if (!same) {
+    const url = `${location.pathname}${location.search}#${hash}`;
+    if (how === 'push') history.pushState(norm, '', url);
+    else history.replaceState(norm, '', url);
+  }
+  if (state.view === 'catalog') renderCatalog();
+  else syncSearch();
+}
+
+function syncSearch() {
+  if (document.activeElement !== searchInput && searchInput.value !== nav.q) searchInput.value = nav.q;
+  searchClear.hidden = !nav.q;
+}
+
+function countIn(groupId) {
+  const probe = { ...nav, wide: true, sub: '', type: '', group: groupId };
+  return browser.pool(probe, favSet(), recentIds).filter((m) => m.groupId === groupId).length;
+}
+
 function renderCatalog() {
-  const tabs = catalogEl.querySelector('.cat-tabs');
-  tabs.replaceChildren(...TABS.map(([k, l]) => {
-    const plain = k === 'palette' || k === 'blocks';
-    const count = plain ? '' : ` ${k === 'all' ? items.length : items.filter((a) => a.group === k).length}`;
-    const b = Object.assign(document.createElement('button'), { textContent: plain ? l : `${l}${count}` });
-    b.classList.toggle('on', k === catTab);
-    b.onclick = () => {
-      if (k === 'blocks') { openBlocks(); return; }
-      catTab = k;
-      renderCatalog();
-    };
-    return b;
-  }));
+  syncSearch();
+  const favs = favSet();
+  const groups = catalogEl.querySelector('.cat-groups');
+  const subRow = catalogEl.querySelector('.cat-sub');
+  const tagRow = catalogEl.querySelector('.cat-tags');
+  const meta = catalogEl.querySelector('.cat-meta');
   const grid = catalogEl.querySelector('.cat-grid');
-  if (catTab === 'palette') {
+
+  groups.replaceChildren(...browser.groups.map((g) => {
+    const count = countIn(g.id);
+    const b = chip(g.label, count, !nav.wide && nav.group === g.id ? 'on' : '');
+    if (!count) b.classList.add('is-empty');
+    b.dataset.group = g.id;
+    b.setAttribute('aria-pressed', String(!nav.wide && nav.group === g.id));
+    return b;
+  }), (() => {
+    const b = chip('Palette', null, nav.group === 'palette' ? 'on' : '');
+    b.dataset.group = 'palette';
+    b.setAttribute('aria-pressed', String(nav.group === 'palette'));
+    return b;
+  })());
+
+  if (nav.group === 'palette') {
+    subRow.replaceChildren();
+    tagRow.replaceChildren();
+    meta.replaceChildren();
     grid.replaceChildren(...Object.entries(PALETTE).map(([name, hex]) => {
       const card = document.createElement('div');
       card.className = 'cat-card pal-card';
@@ -132,20 +190,138 @@ function renderCatalog() {
     }));
     return;
   }
-  grid.replaceChildren(...items.filter((a) => catTab === 'all' || a.group === catTab).map((a) => {
-    const card = document.createElement('button');
-    card.className = 'cat-card';
-    const img = document.createElement('img');
-    img.alt = '';
-    card.append(img, Object.assign(document.createElement('b'), { textContent: a.label }), Object.assign(document.createElement('code'), { textContent: a.id }));
-    card.onclick = () => openItem(a.id);
-    thumbInto(img, renderer, style, a.id, {});
-    return card;
-  }));
+
+  const scoped = browser.pool({ ...nav, sub: '', type: '' }, favs, recentIds);
+  const subs = browser.subsFor(nav.group, scoped).filter((s) => s.tool || s.count || s.id === nav.sub);
+  subRow.replaceChildren();
+  if (!nav.wide && subs.length > 1) {
+    const all = chip('All', scoped.length, !nav.sub ? 'on' : '');
+    all.dataset.sub = '';
+    all.setAttribute('aria-pressed', String(!nav.sub));
+    subRow.append(all);
+  }
+  if (!nav.wide) {
+    for (const s of subs) {
+      const on = nav.sub === s.id || (!nav.sub && subs.length === 1);
+      const b = chip(s.label, s.count, on ? 'on' : '');
+      b.dataset.sub = s.id;
+      if (s.tool) b.dataset.tool = '1';
+      b.setAttribute('aria-pressed', String(on));
+      subRow.append(b);
+    }
+  }
+  tagRow.replaceChildren();
+  if (!nav.wide && nav.group === 'rooms') {
+    const types = browser.typesFor(browser.pool({ ...nav, type: '' }, favs, recentIds));
+    for (const type of types) {
+      if (!type.count && type.id !== nav.type) continue;
+      const b = chip(type.label, type.count, nav.type === type.id ? 'on' : '');
+      b.dataset.type = type.id;
+      b.setAttribute('aria-pressed', String(nav.type === type.id));
+      tagRow.append(b);
+    }
+  }
+
+  if (nav.q || nav.fav || nav.recent) {
+    const all = chip('All groups', null, nav.wide ? 'on' : '');
+    all.dataset.act = 'wide';
+    all.setAttribute('aria-pressed', String(nav.wide));
+    tagRow.append(all);
+  }
+  const savedFavs = favIds.filter((id) => browser.byId.has(id)).length;
+  const savedRecent = recentIds.filter((id) => browser.byId.has(id)).length;
+  const favBtn = chip('Favourites', savedFavs, nav.fav ? 'on' : '');
+  favBtn.dataset.flag = 'fav';
+  favBtn.setAttribute('aria-pressed', String(nav.fav));
+  const recentBtn = chip('Recent', savedRecent, nav.recent ? 'on' : '');
+  recentBtn.dataset.flag = 'recent';
+  recentBtn.setAttribute('aria-pressed', String(nav.recent));
+  tagRow.append(favBtn, recentBtn);
+  // A chip's count is what you would see if you chose it. Size, place and
+  // style replace each other, so those counts ignore the current choice.
+  for (const tag of TAGS) {
+    const others = nav.tags.filter((id) => TAGS.find((item) => item.id === id)?.family !== tag.family);
+    const count = browser.pool({ ...nav, tags: [...others, tag.id] }, favs, recentIds).length;
+    if (!count && !nav.tags.includes(tag.id)) continue;
+    const b = chip(tag.label, count, nav.tags.includes(tag.id) ? 'on' : '');
+    b.dataset.tag = tag.id;
+    b.setAttribute('aria-pressed', String(nav.tags.includes(tag.id)));
+    tagRow.append(b);
+  }
+
+  const list = browser.order(browser.pool(nav, favs, recentIds), nav, recentIds);
+  const everywhere = browser.pool({ ...nav, wide: true }, favs, recentIds).length;
+  const groupLabel = browser.groups.find((g) => g.id === nav.group)?.label ?? '';
+  meta.replaceChildren();
+  const summary = document.createElement('span');
+  if (nav.q) summary.textContent = nav.wide ? `${list.length} matches in all groups` : `${list.length} matches in ${groupLabel}`;
+  else summary.textContent = nav.wide ? `${list.length} in all groups` : `${list.length} in ${groupLabel}`;
+  meta.append(summary);
+  if (!nav.wide && everywhere > list.length && (nav.q || nav.tags.length || nav.fav || nav.recent)) {
+    const more = document.createElement('button');
+    more.type = 'button';
+    more.dataset.act = 'wide';
+    more.textContent = `Show all ${everywhere}`;
+    meta.append(more);
+  }
+  if (nav.q || nav.tags.length || nav.fav || nav.recent) {
+    const clear = document.createElement('button');
+    clear.type = 'button';
+    clear.dataset.act = 'clear';
+    clear.textContent = 'Clear';
+    meta.append(clear);
+  }
+
+  grid.replaceChildren();
+  const sections = browser.sections(list, nav);
+  if (!sections.length) {
+    const empty = document.createElement('p');
+    empty.className = 'cat-empty';
+    empty.append('Nothing matches. ');
+    const clear = document.createElement('button');
+    clear.type = 'button';
+    clear.dataset.act = 'clear';
+    clear.textContent = 'Clear search and filters';
+    empty.append(clear);
+    grid.append(empty);
+    return;
+  }
+  for (const section of sections) {
+    if (section.title && sections.length > 1) {
+      const h = document.createElement('h2');
+      h.className = 'cat-section';
+      h.textContent = `${section.title} · ${section.items.length}`;
+      grid.append(h);
+    }
+    for (const a of section.items) grid.append(itemCard(a, favs.has(a.id)));
+  }
+}
+
+function itemCard(a, loved) {
+  const card = document.createElement('article');
+  card.className = 'cat-card';
+  const open = document.createElement('button');
+  open.type = 'button';
+  open.className = 'cat-open';
+  open.dataset.id = a.id;
+  const img = document.createElement('img');
+  img.alt = '';
+  open.append(img, Object.assign(document.createElement('b'), { textContent: a.label }), Object.assign(document.createElement('code'), { textContent: a.id }));
+  const star = document.createElement('button');
+  star.type = 'button';
+  star.className = 'cat-star';
+  star.dataset.fav = a.id;
+  star.textContent = loved ? '★' : '☆';
+  star.setAttribute('aria-pressed', loved ? 'true' : 'false');
+  star.setAttribute('aria-label', loved ? `Remove ${a.label} from favourites` : `Favourite ${a.label}`);
+  card.append(open, star);
+  thumbInto(img, renderer, style, a.id, {});
+  return card;
 }
 
 function openItem(id, p) {
   const a = CATALOG[id];
+  if (selected?.id !== id) recentIds = rememberRecent(recentIds, id);
   selected = { id, params: { ...a.params, ...p } };
   if (a.animated === 'human' && !HUMAN_ANIMS.includes(state.itemAnim)) state.itemAnim = 'Walk';
   const subject = { id: 'item', label: a.label, schema: {}, isProp: true, build: (_q, st) => createAsset(id, selected.params, st) };
@@ -220,7 +396,7 @@ function renderItemPanel() {
   const anims = a.animated === 'human' ? HUMAN_ANIMS : a.animated === 'cat' ? CAT_ANIMS : null;
   const animNow = a.animated === 'human' && !HUMAN_ANIMS.includes(state.itemAnim) ? 'Walk' : state.itemAnim;
   itemEl.innerHTML = `
-    <div class="it-head"><button type="button" data-act="back">← Catalogue</button><b>${esc(a.label)}</b></div>
+    <div class="it-head"><button type="button" data-act="back">← Catalogue</button><b>${esc(a.label)}</b><button type="button" class="it-fav" data-act="fav" aria-pressed="${favIds.includes(a.id) ? 'true' : 'false'}" aria-label="${favIds.includes(a.id) ? `Remove ${esc(a.label)} from favourites` : `Favourite ${esc(a.label)}`}">${favIds.includes(a.id) ? '★' : '☆'}</button></div>
     <div class="it-body">
       <p class="it-id"><code>${esc(a.id)}</code> · ${esc(a.category)} · about ${a.size[0]} × ${a.size[1]} m</p>
       ${a.kind === 'human' ? humanControlsHtml(look) : `
@@ -266,6 +442,14 @@ function renderItemPanel() {
     const b = e.target.closest('button');
     if (!b) return;
     if (b.dataset.act === 'back') return setView('catalog');
+    if (b.dataset.act === 'fav') {
+      favIds = favIds.includes(a.id) ? favIds.filter((id) => id !== a.id) : [...favIds, a.id];
+      saveFavs(favIds);
+      b.setAttribute('aria-pressed', favIds.includes(a.id) ? 'true' : 'false');
+      b.textContent = favIds.includes(a.id) ? '★' : '☆';
+      b.setAttribute('aria-label', favIds.includes(a.id) ? `Remove ${a.label} from favourites` : `Favourite ${a.label}`);
+      return;
+    }
     if (b.dataset.anim) { state.itemAnim = b.dataset.anim; return renderItemPanel(); }
     if (b.dataset.act === 'copy') {
       const text = itemEl.querySelector('pre').textContent;
@@ -307,16 +491,32 @@ function setView(view) {
   catalogEl.hidden = view !== 'catalog';
   itemEl.hidden = view !== 'item' && view !== 'block';
   controls.enabled = view === 'item' || view === 'block';
-  if (view === 'catalog') { hint.textContent = 'Tap an item to turn it around and see its settings'; renderCatalog(); }
+  if (view === 'catalog') { hint.textContent = 'Press / to search. Tap a card to open it'; renderCatalog(); }
   if (view === 'item') { hint.textContent = 'Drag to turn · scroll or pinch to zoom'; reframe = true; }
   if (view === 'block') hint.textContent = 'Drag to turn · click to select, drop or move';
 }
 window.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && state.view === 'block') blockMaker.close();
-  if (e.key === 'Escape' && (state.view === 'item' || state.view === 'block')) setView('catalog');
-  if (state.view !== 'block' || e.target.matches('input, select, textarea')) return;
-  if (e.key === 'r' || e.key === 'R') blockMaker.rotate90();
-  if (e.key === 'Delete' || e.key === 'Backspace') blockMaker.removeSelected();
+  const typing = e.target.matches?.('input, select, textarea') || e.target.isContentEditable;
+  if (e.key === 'Escape') {
+    if (state.view === 'block') return leaveBlocks();
+    if (state.view === 'item') return setView('catalog');
+    if (e.target === searchInput) {
+      if (nav.q) { searchInput.value = ''; commit({ ...nav, q: '', wide: nav.fav || nav.recent }, 'push'); }
+      else searchInput.blur();
+    }
+    return;
+  }
+  if (state.view === 'block' && !typing) {
+    if (e.key === 'r' || e.key === 'R') blockMaker.rotate90();
+    if (e.key === 'Delete' || e.key === 'Backspace') blockMaker.removeSelected();
+  }
+  if (e.key === '/' && !typing && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    e.preventDefault();
+    if (state.view === 'block') leaveBlocks();
+    else if (state.view !== 'catalog') setView('catalog');
+    searchInput.focus();
+    searchInput.select();
+  }
 });
 
 // PS1 look (default on). Off draws full resolution, detail 1, no dither,
@@ -367,7 +567,6 @@ palettePanel.addEventListener('click', (e) => {
   choosePalette(b.dataset.palette);
   try {
     sessionStorage.setItem('tinycity.back', JSON.stringify({
-      catTab,
       item: selected && state.view === 'item' ? { id: selected.id, params: selected.params } : null,
     }));
   } catch { /* fine */ }
@@ -446,18 +645,103 @@ const blockMaker = createBlockMaker({
   itemEl,
   toast,
   onFrame() { reframe = true; },
-  onClose() { setView('catalog'); },
+  onClose() { leaveBlocks(); },
 });
 function openBlocks() {
   setView('block');
   blockMaker.show();
 }
+function leaveBlocks() {
+  blockMaker.close();
+  if (browser.blockTabIds.has(nav.sub)) {
+    nav = browser.normalize({ ...nav, sub: 'areas' });
+    history.replaceState(nav, '', `${location.pathname}${location.search}#${serializeHash(nav)}`);
+  }
+  if (state.view !== 'catalog') setView('catalog');
+  else renderCatalog();
+}
+function openBlockTab(id) {
+  const next = browser.normalize({ ...nav, group: 'places', sub: id, type: '', tags: [], wide: false });
+  const hash = serializeHash(next);
+  if (hash !== serializeHash(nav)) history.pushState(next, '', `${location.pathname}${location.search}#${hash}`);
+  nav = next;
+  openBlocks();
+}
 
 let back = null;
 try { back = JSON.parse(sessionStorage.getItem('tinycity.back') ?? 'null'); sessionStorage.removeItem('tinycity.back'); } catch { /* fine */ }
-if (back?.catTab) catTab = back.catTab;
-setView('catalog');
-if (back?.item?.id && CATALOG[back.item.id]) openItem(back.item.id, back.item.params);
+history.replaceState(nav, '', `${location.pathname}${location.search}#${serializeHash(nav)}`);
+window.addEventListener('popstate', () => {
+  nav = browser.normalize(parseHash(location.hash));
+  searchInput.value = nav.q;
+  if (nav.group === 'places' && browser.blockTabIds.has(nav.sub)) {
+    if (state.view !== 'block') openBlocks();
+    return;
+  }
+  if (state.view === 'block') blockMaker.close();
+  if (state.view !== 'catalog') setView('catalog');
+  else renderCatalog();
+});
+catalogEl.addEventListener('submit', (e) => e.preventDefault());
+searchInput.addEventListener('input', () => {
+  const q = searchInput.value;
+  const starting = !nav.q && !!q.trim();
+  commit({ ...nav, q, wide: q.trim() ? true : (nav.fav || nav.recent) }, starting ? 'push' : 'replace');
+});
+searchClear.addEventListener('click', () => {
+  searchInput.value = '';
+  commit({ ...nav, q: '', wide: nav.fav || nav.recent }, 'push');
+  searchInput.focus();
+});
+catalogEl.addEventListener('click', (e) => {
+  const from = e.target instanceof Element ? e.target : e.target?.parentElement;
+  if (!from) return;
+  const fav = from.closest('[data-fav]');
+  if (fav) {
+    const id = fav.dataset.fav;
+    favIds = favIds.includes(id) ? favIds.filter((x) => x !== id) : [...favIds, id];
+    saveFavs(favIds);
+    if (state.view === 'catalog') renderCatalog();
+    return;
+  }
+  const open = from.closest('.cat-open');
+  if (open?.dataset.id) return openItem(open.dataset.id);
+  const group = from.closest('[data-group]');
+  if (group) {
+    const id = group.dataset.group;
+    if (id === 'palette') return commit({ ...nav, group: 'palette', sub: '', type: '', q: '', tags: [], fav: false, recent: false, wide: false });
+    const sub = id === 'places' ? (browser.placeSubs[0]?.id || 'areas') : '';
+    // A chip such as European or Indoor belongs to the list you were on.
+    // Carrying it into another group often matches nothing.
+    return commit({ ...nav, group: id, sub, type: '', tags: [], wide: false });
+  }
+  const sub = from.closest('[data-sub]');
+  if (sub) {
+    if (sub.dataset.tool) return openBlockTab(sub.dataset.sub);
+    return commit({ ...nav, sub: nav.sub === sub.dataset.sub ? '' : sub.dataset.sub, type: '', wide: false });
+  }
+  const type = from.closest('[data-type]');
+  if (type) return commit({ ...nav, type: nav.type === type.dataset.type ? '' : type.dataset.type, wide: false });
+  const tag = from.closest('[data-tag]');
+  if (tag) return commit({ ...nav, tags: toggleTag(nav.tags, tag.dataset.tag) });
+  const flag = from.closest('[data-flag]');
+  if (flag) {
+    const key = flag.dataset.flag;
+    const on = !nav[key];
+    const other = key === 'fav' ? nav.recent : nav.fav;
+    return commit({ ...nav, [key]: on, wide: on ? true : nav.wide && !!(nav.q || other) });
+  }
+  const act = from.closest('[data-act]');
+  if (!act) return;
+  if (act.dataset.act === 'wide') return commit({ ...nav, wide: true });
+  if (act.dataset.act === 'clear') {
+    searchInput.value = '';
+    return commit({ ...nav, q: '', tags: [], fav: false, recent: false, wide: false });
+  }
+});
+if (nav.group === 'places' && browser.blockTabIds.has(nav.sub)) openBlocks();
+else setView('catalog');
+if (back?.item?.id && CATALOG[back.item.id] && state.view !== 'block') openItem(back.item.id, back.item.params);
 requestAnimationFrame(loop);
 
 Object.assign(window, {

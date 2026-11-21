@@ -33,7 +33,8 @@ you need that. It is not the publish path.
 ## Code map
 
 ```
-index.html, src/main.js     the catalogue UI: tabs, item panel, palette, render loop
+index.html, src/main.js     the catalogue UI: groups, search, item panel, palette, render loop
+src/catalog/browse.js       groups, tags, search text, favourites, the URL hash
 src/catalog/index.js        ASSETS, CATALOG, createAsset
 src/catalog/humans.js       People tiles and resolveHuman (seed + explicit edits)
 src/catalog/areas.js        six 32 m blocks (Areas tab), layBlock, placeAreaCrowd
@@ -187,6 +188,39 @@ to a bench. Piece geometry keeps the kit's own segment counts.
 `node scripts/check-room-seeds.mjs` and `node scripts/check-diner-layout.mjs`
 check the seeded layouts.
 
+## Finding an item
+
+The old flat tab row is grouped in `src/catalog/browse.js`. The leaf tab ids
+still live in `TABS` in `src/main.js`. A new tab is picked up from that list.
+A tab whose id or label contains "block" is listed under Areas & Blocks.
+Anything else new becomes its own group. Do not change the Areas builders or
+a Block maker panel to add a tab: add the leaf to `TABS` and let the browser
+file it.
+
+Groups: Buildings, Street & props (Street, Traffic, Extras), Nature,
+Vehicles, Characters (People, Cats, Birds), Rooms (16 kits, then Whole room,
+Furniture, Fixtures, Small items, Decor), Areas & Blocks. Areas is the
+diorama cards. Blocks, next to it, opens the block maker (`openBlocks`).
+That panel is not a card grid. Palette stays a swatch grid.
+
+Search (press `/`) matches the friendly name, the id and the tags, across
+every group. Chips narrow that: Indoor or Outdoor, Small / Medium / Large
+(longest side of the footprint: up to 1 m, up to 4 m, larger), Japanese or
+European, and Has variations (the piece has a `seed`). Japanese is the town
+houses and shops, plus a name or id that is clearly Japanese (shrine, ramen,
+dojo, noren, lantern, and the same kind of word). European is the six
+European houses. People and cats are not tagged indoor or outdoor.
+
+A star on the card is a favourite (`localStorage` `tinycity.favs`). Opening
+an item records it (`tinycity.recent`, 24 ids). The hash keeps the group,
+the kit or sub-filter, the room type, the search and the chips, so a link
+and the browser back button return to that list. Changing palette still
+reloads and reopens the item from `sessionStorage`.
+
+Room types come from the id. Doors, windows and lights are fixtures. Plants,
+posters, rugs and signs are decor. Mugs, books and other tabletop pieces are
+small items. The rest of a kit is furniture. The whole room is its own type.
+
 ## Add something
 
 **A building.** Write `myBuilding(style, rng, w, d)` in `shops.js`, `civic.js`
@@ -218,13 +252,14 @@ No unit test suite. Before committing:
 - `npm run build` passes.
 - Open the built page in headless Chromium
   (`--use-gl=angle --use-angle=swiftshader`). The catalogue loads with no
-  console errors. Every tab opens. A person opens in `#item`. Changing a
+  console errors. Every group opens, and Rooms reaches each kit. Search finds
+  an item from another group. A person opens in `#item`. Changing a
   setting and pressing New look both change the mesh. The same seed resolves
   to the same parameters twice. An area opens too: New look changes the
   layout, and the same seed puts things back in the same places. A furnished
   room opens: seed 0 is the hand-made layout, another seed rearranges it,
   and the PS1 button still draws that room. Phone width 390×844 still
-  scrolls the panel.
+  scrolls the panel and the group row.
 - `window.__cc`: `state`, `setView('catalog'|'item')`, `openItem(id, params)`,
   `CATALOG`, `ASSETS`, `resolve(id, params)`, `createAsset`, `orbit(az)`,
   `pose()`, `look(position, target)` (place the preview camera),

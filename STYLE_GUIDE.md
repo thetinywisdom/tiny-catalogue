@@ -840,3 +840,10 @@ in the git history. To keep a future switch to a small change:
 - Colours come from roles (see above), not from textures.
 - If pixel textures are added later, they are optional extras on top of the role
   colours, so a style without textures still works.
+
+## Catalogue screen
+
+The browser around the pictures uses the same dark panels and the accent
+yellow. A card's name is the friendly label. The id is the small line under
+it. Nothing here changes the PS1 picture, the palette or the framing of a
+thumbnail.

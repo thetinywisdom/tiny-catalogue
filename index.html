@@ -18,7 +18,17 @@
       <button id="paletteBtn" type="button" title="Colour palette">🎨<span> Colours</span></button>
     </header>
     <main id="catalog">
-      <div class="cat-tabs"></div>
+      <div class="cat-nav">
+        <form class="cat-search" role="search">
+          <input id="catSearch" type="text" placeholder="Search all items" aria-label="Search all items" autocomplete="off" enterkeyhint="search" spellcheck="false" />
+          <button id="catSearchClear" type="button" aria-label="Clear search" hidden>×</button>
+          <kbd class="cat-kbd" aria-hidden="true">/</kbd>
+        </form>
+        <div class="cat-groups" role="toolbar" aria-label="Catalogue groups"></div>
+        <div class="cat-sub"></div>
+        <div class="cat-tags"></div>
+        <p class="cat-meta" aria-live="polite"></p>
+      </div>
       <div class="cat-grid"></div>
     </main>
     <aside id="item" hidden></aside>
