@@ -8,6 +8,7 @@ const EXTRA_BUILDINGS = { ...SHOP_BUILDINGS, ...CIVIC_BUILDINGS, ...EUROPE_BUILD
 import { tree } from '../subjects/tree.js';
 import { CAT_COATS, CAT_EARS, CAT_FUR, CAT_PATTERNS, CAT_TAILS, cat } from '../subjects/cat.js';
 import { humanAssets } from './humans.js';
+import { AREA_DIORAMAS } from './areas.js';
 import { dressBacks } from '../city/backs.js';
 import { bush, bushKind, doorstepPot } from '../props/extras.js';
 import { manholeCover } from '../props/manhole.js';
@@ -109,7 +110,7 @@ const buildingAssets = Object.entries(BUILDERS).map(([key, fn]) => ({
 }));
 
 // --- areas -------------------------------------------------------------------
-const areaAssets = [{
+const areaAssets = [...AREA_DIORAMAS, {
   id: 'area.park',
   label: 'Park',
   category: 'area',

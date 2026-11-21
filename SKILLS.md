@@ -35,6 +35,7 @@ you need that. It is not the publish path.
 index.html, src/main.js     the catalogue UI: tabs, item panel, palette, render loop
 src/catalog/index.js        ASSETS, CATALOG, createAsset
 src/catalog/humans.js       People tiles and resolveHuman (seed + explicit edits)
+src/catalog/areas.js        six seeded dioramas (Areas tab)
 src/catalog/thumbs.js       card pictures, cached in the browser
 src/render/ps1.js           low-res render, dither, outlines
 src/styles/                 ps1.js materials, palette.js, lighting presets
@@ -85,6 +86,25 @@ The item panel is `#item`. It is the only editor: chips for choices, swatches
 for skin, hair and cloth, sliders for the numbers, Still / Walk / Run, and
 New look. Do not bring back the old creator screen.
 
+## Areas
+
+Six dioramas live in `src/catalog/areas.js` and show on the Areas tab with
+the park (`area.shotengai`, `area.lane`, `area.station`, `area.shrine`,
+`area.square`, `area.alley`). Each one is a normal catalogue item. `seed`
+rebuilds the same layout. 🎲 New look changes only the seed. Chips for
+Density (Sparse / Normal / Busy), People and Cats turn those parts on or
+off without reshuffling the buildings.
+
+They are assembled with `createAsset` from items already in the catalogue.
+The park playground is the existing `buildPlayground` builder. The only new
+geometry is ground: paving, a road, kerbs, and the shotengai's arcade bays
+(posts and short roof panels). Colours are existing roles and palette
+swatches. People stay faceless. Cats are built with `face: 'None'`.
+
+Nobori and birds move because `tickProps` already walks the item. People
+and cats set `userData.tick`, which `tickProps` calls, so a crowd can idle
+or walk in place and a cat can breathe in its sit, loaf or sleep pose.
+
 The preview poses the rig with `poseGait` (`animation` is `New` or `Classic`,
 `walkStyle` / `runStyle` pick the tune). Idle is Still: the person stands
 and looks around.
@@ -105,6 +125,13 @@ picture should be redrawn.
 **A prop.** Add `{ id, label, variants, colors?, build }` under `src/props/`
 and list it in `PROP_GROUPS`. Add a collider in `PROP_COLLIDERS` if it is solid.
 
+**An area.** Add a builder in `src/catalog/areas.js` and a row in
+`AREA_DIORAMAS`. Place existing items with `createAsset`. Keep it about
+20–40 m across. Give it `seed` plus any chips that belong in `options`
+(the item panel already draws those). Do not give the area
+`animated: 'human'` or `'cat'`: that would pose every person or cat with
+one shared cycle. Hang motion on `userData.tick` instead.
+
 **A person setting.** Add it to `human.schema`, build it in the matching
 `human/*.js` file, and add a rule in `rules.js` if it should not combine with
 something else. The item panel reads the schema, so the control shows up on
@@ -119,7 +146,9 @@ No unit test suite. Before committing:
   (`--use-gl=angle --use-angle=swiftshader`). The catalogue loads with no
   console errors. Every tab opens. A person opens in `#item`. Changing a
   setting and pressing New look both change the mesh. The same seed resolves
-  to the same parameters twice. Phone width 390×844 still scrolls the panel.
+  to the same parameters twice. An area opens too: New look changes the
+  layout, and the same seed puts things back in the same places. Phone width
+  390×844 still scrolls the panel.
 - `window.__cc`: `state`, `setView('catalog'|'item')`, `openItem(id, params)`,
   `CATALOG`, `ASSETS`, `resolve(id, params)`, `createAsset`, `orbit(az)`,
   `human`, `itemCell`.

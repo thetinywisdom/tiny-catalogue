@@ -1,9 +1,10 @@
 # Tiny Catalogue
 
 A catalogue of the low-poly PS1 town pieces from Tiny City Builder: buildings
-(including the European houses), street props, vehicles, foliage, animals, and
-people. Open an item, turn it around, change its settings, and copy the
-`createAsset(...)` line.
+(including the European houses), street props, vehicles, foliage, animals,
+people, and six small areas (a shopping street, a lane, a station plaza, a
+shrine corner, an old-town square, a back alley). Open an item, turn it
+around, change its settings, and copy the `createAsset(...)` line.
 
 People are faceless, the same as the cats. There is no town to walk and no
 separate character creator. The app opens on the catalogue.
@@ -42,7 +43,9 @@ scene.add(createAsset('human.salaryman', { seed: 4 }, style));
 
 Ids are on the cards. 🎲 New look changes the seed. The same seed rebuilds
 the same thing. For a person, settings you change after that stay until the
-next New look, and the copied line includes every setting and the seed.
+next New look, and the copied line includes every setting and the seed. An
+area works the same way: the seed is the layout, and Density, People and
+Cats stay put until you change them.
 
 ## Docs
 

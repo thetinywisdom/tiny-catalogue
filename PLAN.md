@@ -21,7 +21,7 @@ renderer. People stay faceless. Cats stay faceless.
 | People | Catalogue tiles, edited in the item panel (chips, sliders, colour swatches, 🎲 New look). Seed 0 is that tile's starter. Any other seed rerolls hair, clothes, colours, build and a little of the size with `mulberry32`, and keeps the tile's body type. Explicit edits sit on top of the seed until the next New look. |
 | Faces | No eyes, mouth, nose or brows on people. No faces on cats. Glasses, masks and beards stay: they are accessories, not faces. |
 | Buildings | Japanese buildings and the European houses stay. Painted shop windows stay, because they are part of the building. Furnished interior rooms (office, diner, clinic, and the rest) are not in this app. |
-| Animation | A person in the item view can stand, walk or run (New or Classic). Cats keep Still / Walk / Run / Sit / Loaf / Sleep. Nobori and birds still move (`tickProps`). |
+| Animation | A person in the item view can stand, walk or run (New or Classic). Cats keep Still / Walk / Run / Sit / Loaf / Sleep. Nobori and birds still move (`tickProps`). Area crowds idle or walk in place, and cats hold a sit, loaf or sleep, through `userData.tick` on that same pass. |
 
 ## Done
 
@@ -38,6 +38,13 @@ renderer. People stay faceless. Cats stay faceless.
    parameter and the seed.
 3. **Tiny Catalogue.** Title, README and `package.json` name. GitHub Actions
    workflow deploys the Vite build to Pages on push to `main`.
+4. **Areas.** Six seeded dioramas on the Areas tab: Shotengai, Residential
+   lane, Station plaza, Shrine corner, Old-town square, Back alley. Built
+   from existing catalogue items. `seed` plus Density, People and Cats.
+   There is no station exterior in the catalogue, so the plaza uses the
+   post office. There is no crate prop and no standalone AC unit: the
+   delivery scooter's boxes, the bins, and the AC units the back-dressing
+   pass already adds stand in. The torii is the one inside `building.shrine`.
 
 The asset library was copied from Tiny City Builder (`thetinywisdom/character-creator`).
 That history (town generation, crowd, weather, interactions) is not in this
