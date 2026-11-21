@@ -1,765 +1,142 @@
-# SKILLS.md: building a game on Tiny City Builder
+# SKILLS.md: Tiny Catalogue
 
-For agents (and people) making a game with this foundation, or extending it.
-Read this first, then `STYLE_GUIDE.md` (how things must look) and `PLAN.md`
-(decisions and what is next). Keep this file current (see the end).
+For agents working in this repo. Read this, then `STYLE_GUIDE.md` (how things
+must look) and `PLAN.md` (decisions). Keep all three current when you change
+the app (see the end).
 
 ## What this is
 
-A **foundation library** of plain ES modules on top of three.js: a small
-Japanese town in a PS1 look, with buildings, street props, people, cars,
-cats, walking, collisions and the PS1 render step. It is not a product for
-players. A game copies or imports the modules it needs and builds its own
-gameplay, UI and editors on top.
+A catalogue of low-poly PS1 pieces: buildings, street props, vehicles,
+foliage, animals and people. The app (`npm run dev`) opens on that list.
+There is no town to walk, no character-creator screen, and no interior rooms.
 
-The app in this repo (`npm run dev`) is only a **viewer** for the owner and
-agents to see what exists:
+A game copies the modules it needs. `createAsset(id, params, style)` builds
+any item. The id is on the card. The item panel's copied line is a working
+call, including the seed.
 
-| Mode | Shows | Code a game reuses |
-|---|---|---|
-| 📦 Catalogue (home) | every placeable item with its id, settings and a `createAsset(...)` line to copy | `src/catalog/` |
-| 👤 Characters | the character creator; ⬇ JSON / ⬆ export and import a character | `src/subjects/human*` |
-| 🏙 City | walk a generated sample town; 🎲 new town, time of day, weather, third person / iso | `src/city/` |
-
-There is no city editor: a game generates its towns (`generateCityData`) or
-writes the town JSON itself.
-
-## Quick start for a game
-
-```js
-import * as THREE from 'three';
-import { style, lightingPresets } from './src/styles/index.js';   // the PS1 look
-import { createPs1Renderer } from './src/render/ps1.js';
-import { createAsset } from './src/catalog/index.js';
-import { generateCityData } from './src/city/layout.js';
-import { buildCity } from './src/city/build.js';
-import { City } from './src/city/City.js';
-
-const renderer = new THREE.WebGLRenderer({ canvas });
-const ps1 = createPs1Renderer(renderer);
-
-// A) one item in your own scene
-const scene = new THREE.Scene();
-scene.add(createAsset('building.koban', {}, style));       // ids: see the Catalogue
-// each frame: ps1.render({ scene, style }, camera, 0, 0, w, h);
-
-// B) a whole town (scene, colliders, walking routes, ground)
-const town = buildCity(generateCityData(42), style);
-
-// C) the ready-made walkable town used by the viewer (player, people, cars, cats, cameras)
-const city = new City({ style, renderer, human, cat, params, data: generateCityData(42) });
-// each frame: city.update(dt, input); ps1.render(city, city.activeCamera, 0, 0, w, h);
-```
-
-`City.js` is a working example of everything together (movement, collisions,
-traffic, cameras, night and weather); copy what you need rather than treating
-it as a fixed engine.
-
-## Building on top: what goes where
-
-Games can add their own animations, characters, buildings and items. Keep
-the foundation general and the game specific:
-
-- **Add to this repo** anything any game could use: a new animation (sitting,
-  waving), a new body type or clothing option, a building, a prop, a tree, a
-  weather. Follow the patterns below (catalogue entry, collider, style roles,
-  docs) so it shows up in the viewer and every future game gets it.
-- **Keep in the game** what only that game needs: its rules, UI, menus,
-  saves, story characters, game-only models.
-- **New animations** are plain functions that set joint rotations each frame,
-  like `anim/gait.js` (people) and `anim/catGait.js` (the cat). Joints are
-  named groups (`JOINT_NAMES`, `CAT_JOINTS`); skinned people keep them, so an
-  animation works in the city too. Run extra poses after `poseGait`, as
-  `poseHold` does. Models made elsewhere (glTF) can be loaded with three.js
-  too; give them style materials so they match.
-- **New kinds of characters** follow `subjects/cat.js`: a `schema`, `presets`
-  and a `build(params, style)` that names its joints.
-
-## Run, build, publish
+## Run and publish
 
 ```bash
 npm install
-npm run dev      # the viewer (Vite)
+npm run dev
 npm run build    # must pass before committing
 ```
 
-The owner reviews the viewer as a single-file page published with the
-Artifact tool: `npm run build`, then `python3 scripts/single-file.py OUT.html`
-(inlines the app's CSS and JS, keeps external font links, and fails if
-anything from `assets/` is left unlinked), then open OUT.html in a browser to
-check it loads, and publish to the same artifact URL each time.
-The page declares the `downloads` capability (character JSON export goes
-through `src/lib/saveFile.js`).
+GitHub Pages: `.github/workflows/pages.yml` builds with Vite and deploys on
+push to `main`. The Vite `base` is `./`. The repository's Pages source must
+be GitHub Actions.
 
-Branches and the public page: `main` is Tiny City Builder (keep it equal to
-the working branch: push the branch, then `git push origin <branch>:main`, a
-fast-forward). The game is also on GitHub Pages,
-https://thetinywisdom.github.io/character-creator/ : after a change run
-`scripts/publish-pages.sh` (builds, adds a normal commit to `gh-pages`).
-Publish to the Artifact, `main` and GitHub Pages after every task.
+`scripts/single-file.py` still inlines a built page into one HTML file if
+you need that. It is not the publish path.
 
 ## Code map
 
 ```
-src/main.js            the viewer: three modes, render loop, debug hooks (not reused by games)
-src/render/ps1.js      createPs1Renderer: low-res render + dither + outlines (reuse this).
-                       Outlines read the alpha the materials write: characters 1 (strong dark
-                       edge x0.28), everything else 0.5 (styles/ps1.js sets opacity 0.5 on
-                       non-character roles, still opaque): a soft x0.8 shade fading out
-                       18-55 m. Pixel size: style.pixelScale follows the screen (short side
-                       / 300, at most the style's 2: phones 1); the UI layer always uses 2
-src/styles/            ps1.js (materials by role, lights), palette.js, lightingPresets
-src/catalog/index.js   ASSET CATALOGUE: every placeable item behind one interface
-src/catalog/thumbs.js  catalogue pictures (drawn on demand, cached in the browser)
-src/subjects/          human.js (+ human/*: frame, sculpt, hair, head, tops, arms, legwear,
-                       footwear, outerwear, accessories, handheld, rules), cat.js, tree.js
-scripts/publish-pages.sh  build + publish to GitHub Pages (gh-pages branch, a normal commit):
-                       https://thetinywisdom.github.io/character-creator/
-src/styles/palette.js  colours: BASE roles, CLOTH / HAIR / SKIN lists, PALETTE (28 named swatches),
-                       snapColor / paletteCanvas, PALETTES (variants: each swatch's colour per
-                       palette, skin mood), activePalette / choosePalette (localStorage
-                       'tinycity.palette', applied on the next load; default 'Golden hour';
-                       the 🎨 button is hidden in the City view) / paletteHex / swatchOf / skinTone
-src/anim/              gait.js (people: walk / run, wing flap, poseHold: stoop + held items;
-                       setGaitEngine('New' | 'Classic'), landGait), gaitIK.js (the New engine:
-                       stride by distance, foot targets + 2-bone leg IK, heel / toe roll,
-                       hip height from the planted leg, stop dip, landing squash, turn lean
-                       in the body via gait.turn, look-around when idle),
-                       catGait.js (cat walk / run), skirt.js (skirt stretch),
-                       props.js (tickProps: nobori vertex sway, pigeon peck, sparrow head)
-src/city/format.js     town JSON format, grid geometry, validation
-src/city/layout.js     generator: generateCityData(seed), blockObjects, streetObjects, roadNetwork
-src/city/build.js      buildCity(data, style): town JSON -> scene, colliders, routes, ground
-src/city/edit.js       immutable town edits (setBlock, addObject, ...) if a game needs editing
-src/city/buildings.js  house, apartment, mixedUse, shop, office, shrine, school
-src/city/shops.js      laundromat, kissaten, pharmacy, sushi, florist, fishmonger
-src/city/civic.js      udon/soba, family restaurant, takoyaki, koban, post office, bank,
-                       clinic, fire station, karaoke, wooden apartment, parking, gas station
-src/city/europe.js     Tudor, Mediterranean, Dutch, French and Scandinavian houses,
-                       and a stone chapel. Catalogue only: not placed by layout.js
-src/city/interiors.js  painted shop interiors and curtains
-src/city/facades.js    painted office facades, roof clutter, roof signs
-src/city/City.js       walkable town: player, people, cars, cats, collisions (walkRoundCars: people
-                       on foot step round any car, the one you drive too; traffic steers round a
-                       vehicle standing in its lane (c.dodge / c.dodgeWant, measured along the
-                       route) or waits and honks when the road is blocked), cameras,
-                       setWeather('Clear'|'Rain'|'Snow'), night via applyLighting
-src/city/backs.js      dresses bare backs and sides of every building (windows, AC units,
-                       back door, drain pipe, emergency stairs), found with rays
-src/city/variety.js    shared building variety: flatsAbove, roofTop, frontExtras, side, pick, between
-src/city/silhouette.js see-through people in the iso view (stencil + GreaterDepth copy)
-src/city/isoPeople.js  iso view only: chunkier 6-head people at 1.2×, lighter clothes,
-                       a low-detail mesh, and silhouettes only when a building hides them
-src/city/playground.js park playground: swings (seats on pivot groups, userData.swing, taken out
-                       of the merged town by takeSwings, swung by updateSwings), slide (chuteAt
-                       curve), climbing frame; kid roles swing / slide / climb (updatePlayKid);
-                       playWorld(park, lx, lz) = playground-local to world
-src/city/crowd.js      the crowd: roles (walk, stand, bench, ...), placed from the layout,
-                       distance culling, sitPose, pedalPose(body, phase) (legs going round
-                       on a bicycle), leanInto(obj, heading, speed, dt) (roll into turns:
-                       you and walkers on foot, bikes and scooters with their riders)
-src/city/knock.js      Knockables: props tagged userData.knock (catalogue KNOCKABLE: planters,
-                       bins, street signs, cones, bollards, sandwich boards) fly
-                       when a vehicle hits them, blink, POOF, back in 5 s
-                       Knockables.cloud(at, opts): dust / stink clouds of flat camera-facing
-                       squares in three shades that pop in steps (pixel puffs)
-(vehicles: scooter variants carry userData.seat { y, z, splay } — where a
- rider sits; the mini scooter's wide body spreads the knees; sitOnBike reads it)
-src/ui/catLab.js       the Cat lab view (🐱 mode): every cat version so far (subjects/catVersions/,
-                       copies of cat.js from the project history; cat_v6.js = the lofted cat
-                       with the cute options) and CUTE_CATS proposals (v6 with face / shape /
-                       pawSize / cheeks); 7 = today's cat (v6 body + v2 head), one tile each,
-                       all on the cat rig: Still / Walk / Run / Sit / Loaf / Sleep
-src/ui/walkLab.js      dev tool (hidden; #dev in the address or __cc.devTools(true)): the Walk lab (City, 🚶 button): engine New / Classic (everyone), walk / run styles (WALK_STYLES,
-                       RUN_STYLES in anim/gait.js), sliders, walk-to-run blend, frame
-                       rate, auto-walk side view; sets city.playerTune (the main
-                       character only, while open); kept in localStorage, Copy settings = JSON.
-                       The styles people actually have: WALKS (Natural, Brisk, Swagger,
-                       Sneak) and RUNS (Natural, Ninja, Panic) in anim/gait.js, picked
-                       separately in the creator (human walkStyle / runStyle); tuneOf(look)
-                       gives the tune; Classic: everyone runs from 1.6 m/s, blending over 0.2;
-                       New: walk-to-run blends 2.0-3.3 m/s (human `animation` param
-                       'New' | 'Classic' = the engine for everyone, set in main.js);
-                       townspeople get a random mix, mostly Natural
-src/ui/actionPad.js    the action buttons: one per interaction, four layouts, pointerdown events
-                       (switched off: SHOW_PAD = false in main.js; the code is kept)
-src/ui/pixelOverlay.js the world layer of the interaction UI: floating speech, bursts,
-                       charge dial painted on a canvas at the picture's pixel size;
-                       main.js setUiStyle({ hud: 'pixel'|'clean' }) styles the controls
-labs/bubble-lab.html   speech-UI design bench (5 pixel designs x 4 scenes, pixel stage kit,
-                       3x5 bitmap font); open it in a browser, reuse for future games
-src/city/comedy.js     comic slap / push / fall variations (COMEDY) and ComedyStage previews;
-                       interact.js ANIM holds the owner's picks: slap = Windmill spin,
-                       power slap = Launch, push = Sumo send-off, falls by temper
-                       (calm: Feet over head, aggressive: Faceplant), fart wind-up
-src/city/interact.js   character interactions: traits, slap / push / talk (pie menu), chat
-                       bubbles + comic bursts, banana peels, riding vehicles
-src/city/atmosphere.js night glow (setNightGlow), snow cover (setSnowCover), rain / snow
-                       screen layer (Precipitation), lamp light pools, weatherLight
-src/city/input.js      keyboard, drag, pinch and on-screen joystick
-src/props/             street props (furniture, traffic, vehicles, extras, japan).
-                       Catalogue-only, not in PROP_GROUPS: manhole.js, clutter.js, nobori.js, birds.js
-src/office/items.js    office kit (catalogue Office tab): procedural desks, chairs,
-                       lounge, kitchen, plants, and the furnished room. Not placed
-                       by the sample town. GLB loader: src/office/loadOfficeKit.js
-public/office-kit/     the kit's GLBs, manifest.json, layout.json, standalone preview
-src/diner/items.js     diner kit (catalogue Diner tab): procedural counter, stools,
-                       booths, jukebox, grill and the furnished room. Not placed
-                       by the sample town. No GLBs; manifest and layout are in
-                       public/diner-kit/
-src/clinic/items.js    clinic kit (catalogue Clinic tab): procedural reception, exam
-                       beds, curtains and the furnished room. Not placed by the sample town
-public/clinic-kit/     manifest.json and layout.json (no GLBs)
-src/police/items.js    police kit (catalogue Police tab): procedural koban counter, cell,
-                       lockers and the furnished room. Not placed by the sample town
-public/police-kit/     manifest.json and layout.json (no GLBs)
-src/minimarket/items.js minimarket kit (catalogue Minimarket tab): procedural konbini
-                       counter, shelves, fridges and the furnished room. Not placed
-                       by the sample town
-public/minimarket-kit/ manifest.json and layout.json (no GLBs)
-src/meeting/items.js   meeting-room kit (catalogue Meeting tab). Not placed by the sample town
-src/bedroom/items.js   small-bedroom kit (catalogue Bedroom tab). Not placed by the sample town
-src/studio/items.js    1R studio kit (catalogue Studio tab). Not placed by the sample town
-public/meeting-kit/    manifest.json, layout.json (no GLBs)
-public/bedroom-kit/    manifest.json, layout.json (no GLBs)
-public/studio-kit/     manifest.json, layout.json (no GLBs)
-src/cafe/items.js      cafe kit (catalogue Cafe tab): espresso bar, round tables,
-                       window counter and the furnished room. Not placed by the
-                       sample town. No GLBs; public/cafe-kit/
-src/classroom/items.js classroom kit (catalogue Classroom tab): student desks,
-                       blackboard, cubbies and the furnished room. Not placed by
-                       the sample town. No GLBs; public/classroom-kit/
-src/openoffice/items.js open-office kit (catalogue Open office tab): shared bench
-                       desks, lounge, pantry and the furnished room. Namespace
-                       openoffice, separate from the office kit. Not placed by
-                       the sample town. No GLBs; public/openoffice-kit/
-src/creator/Creator.js the character creator panel (viewer only)
-src/viewer/            Cell (a preview stage), params (saved settings)
-src/lib/               shapes, foliage (lobes, fronds, shaded leaf/bark, trimmed hedges), merge
-                       (one mesh per material), skin (one skinned mesh per person), rng,
-                       roomPlan (seeded-room overlap checks), textures, saveFile
+index.html, src/main.js     the catalogue UI: tabs, item panel, palette, render loop
+src/catalog/index.js        ASSETS, CATALOG, createAsset
+src/catalog/humans.js       People tiles and resolveHuman (seed + explicit edits)
+src/catalog/thumbs.js       card pictures, cached in the browser
+src/render/ps1.js           low-res render, dither, outlines
+src/styles/                 ps1.js materials, palette.js, lighting presets
+src/city/                   building builders the catalogue uses (not a town):
+                            buildings, shops, civic, europe, facades, interiors
+                            (painted windows), backs, variety, park, playground
+src/props/                  street props, vehicles, clutter, birds, nobori
+src/subjects/human.js       the person (plus human/*). No face.
+src/subjects/cat.js         the cat. Catalogue forces face: 'None'.
+src/subjects/tree.js        trees
+src/anim/gait.js, gaitIK.js, skirt.js    walk and run
+src/anim/catGait.js         cat poses
+src/anim/props.js           tickProps: nobori sway, pigeon peck, sparrow head
+src/lib/rng.js              mulberry32
+src/viewer/Cell.js          the turntable stage for one item
 ```
 
-## The rules (keep them in any game)
+Outlines: character materials keep a strong dark edge; everything else gets a
+softer shade (`render/ps1.js` reads the alpha the materials write). Pixel
+size follows the screen (`style.pixelScale`, short side / 300, at most 2;
+phones use 1).
 
-**The palette is a rule.** Every colour is snapped to `PALETTE`
-(`src/styles/palette.js`): muted greys and off-whites, soft pastels, a few
-muted darks; no bright colours. The style snaps material colours
-(`snapColor`) and painted canvases (`paletteCanvas`, already called for
-signs, interiors and facades); call `paletteCanvas` on any new painted
-texture. Skin is the only exception. Buildings are stricter: the
-`building`, `buildingAlt`, `roof`, `concrete` and `wood` roles snap to
-`BUILDING_PALETTE` (greys, brick, wood browns only). See STYLE_GUIDE.md §2.
+Palette: `src/styles/palette.js`. The 🎨 button picks one of seven. The page
+reloads. Buildings still snap to greys, brick and wood. Skin is not snapped.
+Golden hour is the default (`localStorage` key `tinycity.palette`).
 
-**Style by role.** Models never pick materials directly; they ask
-`style.material(role, color?, map?)` with roles like `skin`, `cloth`, `hair`,
-`building`, `concrete`, `wood`, `glass`, `signage`, `light`, `metal`. Vivid
-roles (`signage`, `light`, character roles) keep their colour; environment
-roles are softened. `light` glows: never use it for big textured surfaces.
+## People
 
-**Assets.** Everything placeable is in `src/catalog/index.js`:
+Tiles live in `src/catalog/humans.js`. Each one is a normal catalogue asset
+(`human.man`, `human.woman`, `human.boy`, `human.girl`, `human.grandpa`,
+`human.grandma`, `human.schoolboy`, `human.schoolgirl`, `human.salaryman`).
 
-```js
-{ id: 'building.koban', label, category, group, params /* defaults */,
-  variants?, colors?, size: [w, d], build(params, style) -> THREE.Object3D }
-```
+`resolveHuman(preset, params)`:
 
-`build` returns an object standing on y = 0, facing +z, with
-`userData.colliders = [{ x, z, hw, hd }]` in its own space.
-`createAsset(id, params, style)` builds one; unknown params fall back to the
-defaults. `params.variant` picks from `variants`, `params.color` from
-`colors`, `params.seed` changes the look of seeded items, buildings take
-`w` / `d` (lot size) and shops `shopType`. Groups (catalogue tabs):
-buildings, street, traffic, extras, nature, animals, vehicles, office, diner,
-clinic, police, minimarket, meeting, bedroom, studio, cafe, classroom,
-openoffice, areas.
-`animated: 'cat'` marks items with joints (`animal.cat`: pose it with
-`poseCat`, `anim/catGait.js`; resting poses via `gait.pose = 'sit' |
-'loaf' | 'sleep'`; joints legF*/legB* plus lowF*/lowB* elbows and hocks). Cats take `pattern`, `tailType`, `earType` and `coat`
-(`cat.randomize()` for a random one); coats are painted per face as vertex
-colours, which `lib/skin.js` keeps when it makes the city's skinned mesh.
-`options: { param: [values] }` on a catalogue asset adds chips in the viewer.
+- `seed` 0 (or omitted) is the starter look on that tile.
+- Any other integer rolls with `human.randomize(mulberry32(...))`, mixed
+  with the tile id. The tile's body type stays (a kid stays a kid, a
+  salaryman stays a man). Hair, clothes, colours, build and a little of the
+  size change. The same id and the same seed always rebuild the same person.
+- Any other key in `params` is an edit and wins over the seed. The character
+  rules still apply (no skirt on a man, no beard on a woman, and the rest
+  in `human/rules.js`).
+- 🎲 New look replaces params with a new seed only, so the whole person
+  changes. Edits made after that stay until the next New look.
+- The copied line is the resolved person: every schema field plus `seed`.
 
-**Office kit** (catalogue only, not placed by `layout.js`). Tab **Office**.
-`createAsset('office.desk', {}, style)` and the other `office.*` ids build the
-furniture from boxes and cylinders in `src/office/items.js` (synchronous, so
-thumbs and the single-file page do not fetch binaries). `office.room` is the
-furnished office, 6.5 × 14.5 m: `variant: 'Cutaway'` (default, east wall
-hidden) or `'Full'`, and `seed` (an integer). Omit `seed`, or pass `0`, and
-the room is the authored layout. Any other seed is the same room rearranged
-deterministically: desks, lounge and meeting move, chairs and desktop objects
-shift a little, optional plants and storage come and go, and cloth, rug, mug
-and book colours pick other palette swatches. Walls, the door, the glass and
-the kitchen / bar stay. The catalogue has a seed number and Randomize; the
-copied `createAsset` line includes the seed. Parts use `style.material(role, swatch)`, so palette
-changes apply. The GLBs, manifest and layout stay in `public/office-kit/`
-(Vite serves them; GitHub Pages publishes them with `dist/`). A game that
-wants the files instead of the code calls `loadOfficeKit({ style })` from
-`src/office/loadOfficeKit.js`, then `placeOfficeItem` / `placeOfficeRoom`.
-Rebuild the GLBs with `blender -b -P src/office/build_office_kit.py` (blend:
-`src/office/office_kit.blend`). Rugs have no collider. The room floor is 2 cm
-above y = 0 so it does not flicker on a ground at y = 0.
+The item panel is `#item`. It is the only editor: chips for choices, swatches
+for skin, hair and cloth, sliders for the numbers, Still / Walk / Run, and
+New look. Do not bring back the old creator screen.
 
-**Diner kit** (catalogue only, not placed by `layout.js`). Tab **Diner**.
-`createAsset('diner.stool', {}, style)` and the other `diner.*` ids build the
-pieces from boxes and cylinders in `src/diner/items.js`. `diner.room` is the
-furnished diner, 12 × 8 m, front facing +z: `variant: 'Cutaway'` (default;
-the +z and +x walls are hidden) or `'Full'`. `seed` (an integer; `0` or
-omitted is the hand-placed layout) rearranges the dining floor with the
-repo's `mulberry32`. The same seed is the same room. The counter, kitchen,
-door and windows stay put. Parts use `style.material(role, swatch)`.
-There are no GLBs. Names and footprints are in `public/diner-kit/`; the
-hand-placed furniture is `layout.json` and the seeded rules are
-`src/diner/plan.js`. The floor mat and the pendant lamp have no collider.
-The room floor is 2 cm above y = 0, same as the office. Check layouts with
-`node scripts/check-diner-layout.mjs`.
+The preview poses the rig with `poseGait` (`animation` is `New` or `Classic`,
+`walkStyle` / `runStyle` pick the tune). Idle is Still: the person stands
+and looks around.
 
-**Clinic, police and minimarket kits** (catalogue only, not placed by `layout.js`).
-Tabs **Clinic**, **Police** and **Minimarket**. `createAsset('clinic.exam_bed', {}, style)`,
-`createAsset('police.holding_cell', {}, style)`, `createAsset('minimarket.shelf_aisle', {}, style)`
-and the other ids build the pieces from boxes and cylinders in `src/clinic/items.js`,
-`src/police/items.js` and `src/minimarket/items.js`. `clinic.room` (10 × 8 m),
-`police.room` (12 × 8 m) and `minimarket.room` (10 × 8 m) are the furnished rooms,
-front facing +z: `variant: 'Cutaway'` (default; the +z and +x walls are hidden) or
-`'Full'`. `seed` (default 0) is the hand-placed layout; any other integer is
-deterministic (`mulberry32` in `src/lib/rng.js`, rules in `src/<kit>/layout.js`).
-The catalogue panel has a seed field and Randomize, and the copied `createAsset`
-line includes the seed. Doors, windows and the fixed anchors stay; furniture
-counts, which wall a group uses, a left-right mirror of the checkout, loose-prop
-jitter and a few swatches change. A 0.9 m path from the door stays clear.
-`node scripts/check-room-seeds.mjs` rejects overlaps for seeds 0–50. Parts use `style.material(role, swatch)`. There are no GLBs. Names,
-footprints and the furniture layout are in `public/clinic-kit/`, `public/police-kit/`
-and `public/minimarket-kit/`. Floor mats, ceiling lights, the koban lamp and the
-noren have no collider. The room floor is 2 cm above y = 0, same as the office.
+Faces: the human builder has no eyes, mouth, nose or brows. Do not add them.
+Beards, glasses and masks are accessories and stay. Cats in the catalogue are
+built with `face: 'None'`. Do not add a face control.
 
-**Meeting, bedroom and studio kits** (catalogue only, not placed by `layout.js`).
-Tabs **Meeting**, **Bedroom**, **Studio**. `createAsset('meeting.chair', {}, style)`,
-`createAsset('bedroom.bed', {}, style)`, `createAsset('studio.sink', {}, style)`
-and the other ids build the pieces from boxes and cylinders. `meeting.room`
-(6 × 4 m), `bedroom.room` (3.5 × 3 m, one single bed) and `studio.room`
-(6 × 4 m, a Japanese 1R) are the furnished rooms, front facing +z:
-`variant: 'Cutaway'` (default; the +z and +x walls are hidden) or `'Full'`.
-`seed: 0` (or omitting it) is the hand-made layout; any other integer rebuilds
-the same room, via `mulberry32` in `src/lib/roomSeed.js`. The catalogue panel
-has a seed number and Randomize, and the copied `createAsset` line includes it.
-Parts use `style.material(role, swatch)`. There are no GLBs. Names, footprints
-and the furniture layout are in `public/meeting-kit/`, `public/bedroom-kit/`
-and `public/studio-kit/`. Rugs, the floor cushion and the hanging lamps have
-no collider. The room floor is 2 cm above y = 0, same as the office.
+## Add something
 
-**Cafe, classroom and open office** (catalogue only, not placed by `layout.js`).
-Tabs **Cafe**, **Classroom** and **Open office**. `createAsset('cafe.table', {}, style)`,
-`createAsset('classroom.student_desk', {}, style)` and `createAsset('openoffice.bench', {}, style)`
-build the pieces from boxes and cylinders in `src/cafe/items.js`, `src/classroom/items.js`
-and `src/openoffice/items.js`. Each `*.room` is the furnished room:
-`variant: 'Cutaway'` (default; the +z and +x walls are hidden) or `'Full'`.
-Sizes: cafe 8 × 6 m, classroom 9 × 7 m, open office 12 × 10 m, front facing +z.
-`openoffice` is not the `office` kit. Parts use `style.material(role, swatch)`.
-There are no GLBs. Names, footprints and the hand-made layout are in
-`public/cafe-kit/`, `public/classroom-kit/` and `public/openoffice-kit/`.
-`createAsset('cafe.room', { variant: 'Cutaway', seed: 7 }, style)` (the same
-for `classroom.room` and `openoffice.room`) rebuilds that seed every time.
-Omit `seed`, or pass `0`, for the hand-made `layout.json`. The catalogue seed
-box and Randomize button put the seed in the copied line. Walls, doors,
-windows, the espresso bar, the blackboard and the pantry stay put. The seed
-changes how many tables, desk rows or benches, a small pull on chairs, which
-optional props are out, and one accent from the existing palette. Classroom
-desks stay in neat rows facing the board. `node scripts/check-room-seeds.mjs`
-checks seeds 0–50 for overlaps and a clear walk from the door.
-Rugs, mats, the noren and hanging lamps have no floor collider. The room
-floor is 2 cm above y = 0, same as the office.
+**A building.** Write `myBuilding(style, rng, w, d)` in `shops.js`, `civic.js`
+or `europe.js`. Return `{ group, footprint, colliders }`. Add it to
+`SHOP_BUILDINGS`, `CIVIC_BUILDINGS` or `EUROPE_BUILDINGS` with a label and a
+lot size. European houses are not dressed with Japanese backs (`SKIP_BACKS`
+in `catalog/index.js`). Bump `VERSION` in `catalog/thumbs.js` if an existing
+picture should be redrawn.
 
-**Ramen, kitchen and library** (catalogue only, not placed by `layout.js`).
-Tabs **Ramen**, **Kitchen** and **Library**. `createAsset('ramen.stool', {}, style)`,
-`createAsset('kitchen.chair', {}, style)` and `createAsset('library.shelf_bay', {}, style)`
-build the pieces from boxes and cylinders in `src/ramen/items.js`, `src/kitchen/items.js`
-and `src/library/items.js`. Each `*.room` is the furnished room:
-`variant: 'Cutaway'` (default; the +z and +x walls are hidden) or `'Full'`.
-Sizes: ramen 7 × 5 m, kitchen 5 × 4 m, library 10 × 8 m, front facing +z.
-Parts use `style.material(role, swatch)`. There are no GLBs. Names, footprints
-and the hand-made layout are in `public/ramen-kit/`, `public/kitchen-kit/` and
-`public/library-kit/`. `createAsset('ramen.room', { variant: 'Cutaway', seed: 7 }, style)`
-(the same for `kitchen.room` and `library.room`) rebuilds that seed every time.
-Omit `seed`, or pass `0`, for the hand-made `layout.json`. The long counter,
-the kitchen run and three library shelf rows stay put. The seed changes the
-ramen counter's L, the stool count, the dining table's spot, the library's
-fourth shelf row, and which end is the reading room. Chairs and stools face
-their table or counter. `node scripts/check-room-seeds.mjs` checks seeds 0–50.
-Floors are one solid colour. The room floor is 2 cm above y = 0.
+**A prop.** Add `{ id, label, variants, colors?, build }` under `src/props/`
+and list it in `PROP_GROUPS`. Add a collider in `PROP_COLLIDERS` if it is solid.
 
-**Dojo and station** (catalogue only, not placed by `layout.js`).
-Tabs **Dojo** and **Station**. `createAsset('dojo.punching_bag', {}, style)` and
-`createAsset('station.ticket_gate', {}, style)` build the pieces from boxes and
-cylinders in `src/dojo/items.js` and `src/station/items.js`. Each `*.room` is
-the furnished room: `variant: 'Cutaway'` (default; the +z and +x walls are
-hidden) or `'Full'`. Sizes: dojo 9 × 9 m, station 16 × 6 m, front facing +z.
-Parts use `style.material(role, swatch)`. There are no GLBs. Names, footprints
-and the hand-made layout are in `public/dojo-kit/` and `public/station-kit/`.
-`createAsset('dojo.room', { variant: 'Cutaway', seed: 7 }, style)` (the same
-for `station.room`) rebuilds that seed every time. Omit `seed`, or pass `0`,
-for the hand-made `layout.json`. The dojo floor is one solid sage tatami slab.
-The station gates and the platform edge stay put; the seed only moves benches
-and ticket machines. `station.room` sets `fillFrame`, so the catalogue thumbnail
-fits the 16 × 6 m box. `node scripts/check-room-seeds.mjs` checks seeds 0–50.
-Floors are one solid colour. The room floor is 2 cm above y = 0.
+**A person setting.** Add it to `human.schema`, build it in the matching
+`human/*.js` file, and add a rule in `rules.js` if it should not combine with
+something else. The item panel reads the schema, so the control shows up on
+its own. Add it to `randomize` if New look should roll it.
 
-Catalogue-only street details (the sample town does not place them; `params.seed` and 🎲 New look, same as a tree): `prop.manhole` (Flower, Wave, Grid; 40 triangles at PS1 detail), `prop.backClutter` (Propane tanks 156, Gas meter 64, Drainpipe 78, Cluster 310), `prop.nobori` (Stripes, Blocks; 92; call `tickProps` from `anim/props.js` each frame so the cloth sways), `animal.bird` (Pigeon 154, Sparrow 156; the same `tickProps` runs the peck and the perched look). No new palette swatches. No separate outdoor AC prop: units already dress backs, balconies and roofs. Trees (`nature.tree`) are clumped low-poly lobes (bamboo: segmented culms; the old giant: a kinked trunk that splits) and come in 11 presets the city plants
-(oak, lollipop, pine, old giant, cherry blossom, Japanese maple, ginkgo,
-zelkova, black pine, weeping willow, bamboo). Catalogue-only kinds live in `tree.more` (the park and the shrine grove never see them): Japanese cedar, windmill palm, camphor, pagoda tree, winter tree, autumn maple. Bushes (`nature.bush`) are the Small and Large mounds, plus boxwood, azalea, hydrangea and a fern clump. Doorstep pots (`nature.pot`: fern, leafy, snake plant, cactus) are separate from the street planter. Motorbikes
-(`vehicle.scooter`) in 50cc and Delivery (three-wheelers), Step-through,
-Motorcycle and Mini scooter (each with its own default colour when no
-`color` is given); cars
-(`vehicle.car`) in Kei car, Sedan, Hatchback, Minivan, Taxi, Sports car and
-Bus. Cars are built from a side profile extruded across the width (`CARS`
-in `props/vehicles.js`: `body` and `glass` outlines, axle and door positions);
-add a car by adding an outline there. `CAR_SIZES` gives each one's half
-sizes for collisions and braking.
+## Testing
 
-**Town JSON** (`src/city/format.js`): `{ format: 'tiny-city', version: 1,
-meta, grid: { cols, rows, block: 40, road: 6, sidewalk: 3, curb: 0.12 },
-blocks: [{ col, row, type, seed }], objects: [{ asset, params, x, z, y?, rot
-/* degrees */, group? }] }`. Block types: residential, mixed, shops, downtown,
-park, plaza, shrine, school. Roads run round every block and join up by
-themselves. Objects with `group: 'block:c,r'` or `'streets'` are generated;
-objects without a group are hand-placed. The same JSON always rebuilds the
-same town (everything is seeded with `mulberry32`).
+No unit test suite. Before committing:
 
-**Collisions.** Every asset lists solid boxes (`PROP_COLLIDERS` for props,
-`colliders` from building builders). `City.js` shows the pattern: grid lookup
-(`nearColliders`), push the player out of boxes, cars, people and cats;
-pedestrians sidestep; cars brake for things ahead. A new item needs a collider.
+- `npm run build` passes.
+- Open the built page in headless Chromium
+  (`--use-gl=angle --use-angle=swiftshader`). The catalogue loads with no
+  console errors. Every tab opens. A person opens in `#item`. Changing a
+  setting and pressing New look both change the mesh. The same seed resolves
+  to the same parameters twice. Phone width 390×844 still scrolls the panel.
+- `window.__cc`: `state`, `setView('catalog'|'item')`, `openItem(id, params)`,
+  `CATALOG`, `ASSETS`, `resolve(id, params)`, `createAsset`, `orbit(az)`,
+  `human`, `itemCell`.
 
-**Performance.** Merge static things into one mesh per material
-(`src/lib/merge.js`). Turn each walking person into one skinned mesh
-(`src/lib/skin.js`, about 2 draw calls a person). Prefer painted textures over
-many small meshes ("feel real, not be real").
-
-**See-through movers.** In the iso view, everything that moves (people,
-cats, cars, buses) can show as a flat silhouette when a building is between
-it and the camera, `src/city/silhouette.js`: `addSilhouette` for skinned
-people and cats, `addObjectSilhouette` for rigid things like cars. A new
-moving thing in the city needs one. People are a stronger blue
-(`0x2a56b0`), the player a pale yellow (`0xfff3c4`, so it stays off warm
-roofs), cars a faint blue-grey. `City.syncPresentation` turns a silhouette
-on only when `occludedByBuilding` says a building box is within 10 m along
-the view ray (`src/city/isoPeople.js`); third person draws none. Every
-style material writes stencil 0, a person's materials stencil 1
-(`markPerson`), and the copy is drawn last with `depthFunc: GreaterDepth`
-where the stencil is not 1. The PS1 render target has a depth + stencil
-buffer; keep it. A silhouette pixel is drawn once (it marks the stencil),
-so overlapping parts tint evenly.
-
-**Iso people** (`src/city/isoPeople.js`). The creator and the third-person
-view keep the full character. The iso view parents a second, coarser mesh
-under `isoWrap` (scale 1.2): adults about 6 heads tall, head width 0.95,
-limbs 25% thicker, about 700–1,000 triangles (`setDetail` cap, no joint
-balls). Generated townspeople get lighter legwear than their top, and
-about 40% get light hair or a light hat; the stored look is unchanged.
-The iso mesh copies joint rotations each frame. `userData.hipLock` (set by
-sit, swing and bike poses) keeps its hips on the seat; otherwise it stands
-on the same feet. Joint caches must skip the group named `isoWrap`, or
-they will pose the picture instead of the real skeleton. A faint ring
-(`playerRing`) sits under the player in iso only.
-
-**The crowd** (`src/city/crowd.js`). Every pedestrian has a role
-(`n.role.kind`): `walk` (walks a block's pavement and, at corners, sometimes
-crosses the road to another block's route, so walkers roam), `stand` (stands
-about, looks around), `bench` (sits on a park bench), `queue` (lines up outside ramen / udon /
-sushi / takoyaki shops, 1.5 m out from the real storefront, found by walking
-out from the lot centre to the far edge of the building's collider; the front
-one goes in, the rest shuffle up),
-`promote` (waves and calls out outside a shop, `CALLS`), `group` (2-4 chat
-in a circle holding short scripted conversations from `CONVERSATIONS` in
-crowd.js when you are within ~22 m; `playConversation` plays lines in order,
-one per 1.2 s, quick reactions (third item `true`) 0.35 s after the line
-before, 3-5 s between conversations, none repeating until all are used; the
-`four: true` ones need a group of four; bench pairs (`benchPairs`) use the
-same, C's part going to A), `kid`
-(children running about the park), `swing` / `slide` / `climb` (kids on
-the playground's swings, slide and climbing frame: `src/city/playground.js`), `police` (outside each koban; two more
-walk a beat). Looks fit the place: ~70% suits downtown, school uniforms by
-the school, police uniforms, aprons on promoters. Shop types of `building.shop`
-/ `mixedUse` without a `shopType` are read from their seed. Riders: people
-sitting on bicycles and scooters in the traffic (`cars` with `rider: true`,
-`bike`, `riderBody`, `riderLook`). Every vehicle can be ridden: take one from
-someone and `City.ejectDriver(c)` makes them jump out on the driver's side,
-shout and run away scared (a new walker); parked cars (carports, petrol
-stations), bicycles outside shops and the koban, and every catalogue vehicle
-placed in a town (vehicle.car / bus / bicycle / scooter, e.g. the scooters
-and bikes outside shops) are tagged `userData.rideable` ('car' | 'bicycle' |
-'scooter') and taken out of the merged town (`takeRideables`) into
-`cars` as parked. A rider who falls is thrown clear of the bike and lies on
-the road, then is back in the saddle when the bike rights.
-Bus stop: a shelter at the kerb on the bus route (only its glass back is
-solid; `City.walkAvoid` zones make walkers step round behind any shelter,
-also the ones in the town data); the bus slows in and waits 5 s
-(`bus.stop`), `Crowd.busArrived` hides one or two waiters (got on) and lets
-earlier ones off by the door as walkers (`busWait` role; faked, nobody is
-tracked inside); passing walkers top the stop up. Roles with a place carry
-`role.home` {x, z, heading}. People further than ~48 m from the player are
-hidden and not animated. After any reaction a person walks back to their
-place at their own pace (`City.endAct` → act 'return' → `City.finishAct`) and
-picks their role up again. Add a role: assign it in the City constructor
-and handle it in `Crowd.updateRole`.
-
-**Player movement.** Speed builds up: quick to a walk, then about 1.5 s to
-a full run (Shift, 4.6 m/s), quick to stop. Space jumps.
-
-**Character interactions** (`src/city/interact.js`, optional for games).
-Every person has a `trait` ('Calm' | 'Aggressive', in the human schema and
-the character JSON; about 1 in 4 are aggressive). The player can:
-slap (aggressive: slaps back, then chases; calm: runs away), push (knocked
-over like a car hit, `ix.knockDown`; `ix.domino` then knocks down anyone
-within ~1.3 m of the victim (further in the push direction), one after
-another, up to two steps on, with a BUMP! burst; they get up shouting, then aggressive:
-chase and push you over too; calm: run away), talk (both say
-a line of small talk), drop banana peels (anyone stepping on one slips), and
-ride vehicles (cars and the bus steer like real vehicles: the turn rate
-depends on the wheelbase, `size.hd * 1.3`, and the body pivots round the rear
-axle; traffic tows `c.rear` behind a front axle that follows the lane, so the
-bus swings round corners; small props tagged `userData.knock` are taken out
-of the merged town by `Knockables` and fly off when your vehicle hits them
-(`city.knock.hitBy`), their collider gets `down` so `pushOut` skips it until
-they pop back; a crash with another vehicle (closing speed over 2.5 m/s)
-throws you off a bicycle or scooter (`getOff` + slip), and any bicycle or
-scooter in it falls over, its rider too (`ix.topple(c, side)`, `c.fallen`,
-`ix.updateFallen` stands it back up; getting on picks it up); Shift or a held right button is the handbrake: the vehicle
-slows and loses grip, `drive.travel` lags `drive.heading`, so it drifts and
-leaves skid marks; traffic cars, the bus, a scooter and a bicycle parked by the
-start; WASD drives (the pedal `drive.pedal` eases down and the pull fades
-towards top speed, `ACC` per kind: bus 1.6, bicycle 2.2, car 3.4, scooter 3.8
-m/s²; the handbrake held going straight locks the wheels and stops it at 9
-m/s² with skid marks, steering on it drifts), people hit fall over, you get out on the driver's side
-and the vehicle stays parked). Whoever is under the mouse gets a bright pulsing yellow ring with a dark
-edge (`ix.hoverRing`, from `CityInput.hover` and `ix.pickAt`; the pointer
-becomes a hand; `pickAt` hits a person anywhere from feet to head, about a
-body's width either side (see the hitbox below), and a vehicle only by a ray hit on its shape; a
-click on empty ground does nothing, it never falls back to whoever you face;
-while riding only E or a click on your own vehicle gets you off); the open menu's person keeps it; the soft ring marks whoever
-you face. Clicking a person or vehicle works at any distance you can see: you
-run over to them first (`player.goal`, cancelled by any movement key), then
-act. Input arrives as events
-(`CityInput.takeEvents()`): keys E (action menu / ride), 1 slap (hold to charge: `CHARGE` = two cycles of the
-dial: the first fills green to yellow, the second yellow to red; releasing
-any time before the second cycle is complete gives a slap, only once it is
-full red (and shaking) a power slap (the dial grows through the second round,
-`chargeInfo().grow`, trembling more and more); release to hit; events chargeStart / chargeEnd), 2 push, 3 talk, 4 fart (event 'choose' n,
-`MENU_OPTIONS`; with the menu open they pick its option, else act on whoever
-you face), B banana, fart (`ix.fart`: squat and strain `FART_WINDUP` 0.65 s, then a green pixel cloud, everyone within `FART_R` 3.5 m
-falls over stunned for 3.6 s, then runs off; 2.5 s cooldown), Space jump (`player.jumpY` / `vy`), Esc; mouse click = talk (ride on a vehicle), right click = the action menu, hold = charge a slap, release to hit,
-double click = push; taps work the same (except a long press: a finger
-resting on the screen is not a slap; `pointerType === 'touch'` skips the
-hold timer). Picking a person on screen (`pickAt`): a capsule hitbox round
-the whole body (feet to just above the head), 38% of their screen height
-either side, 14-40 px (people over 30 m away in the third-person view: tight,
-6 px+); the lowest distance/reach wins and the ringed person (`mouseHover`)
-counts 0.6x (sticky); a vehicle is picked only by a ray hit on its actual shape
-(`PICK_RAYS`, the centre and 5 px either way), not its screen box; anything
-behind or inside a building is not pickable in the third-person view
-(`ix.behindBuilding(camera, pos)`: the camera-to-target segment against
-colliders bigger than 3 m; the iso camera skips it). A hold that
-turns into a camera drag sends `chargeCancel` (no slap). **Action buttons** (`src/ui/actionPad.js`, `ActionPad`): every
-interaction has a button (USE = hand, SLAP hold-to-charge, PUSH, TALK, FART,
-JUMP, PEEL, RUN held = `cityInput.runHeld`, the handbrake when riding); they
-fire on pointerdown so they work while a thumb is on the joystick (phones
-send no clicks with two fingers down); events carry `btn: true` and act on
-`ix.buttonTarget()` (the person under the mouse, else the nearest one in
-front within 7 m, you run over; USE takes a vehicle within 2.5 m first, else
-talks), shown with the hover ring (`ix.padTarget`). Layouts `PAD_LAYOUTS`
-Arc / Grid / Split / Bar (`actionPad.setLayout`, kept in localStorage
-`tinycity.pad`, 🎮 toolbar button). The menu (SLAP, PUSH, TALK, FART)
-and the action buttons (solid navy plates since the owner found the dithered ones hard to read) are painted on the pixel layer as
-"ghost plates" (owner's pick C of the controls lab): see-through dithered
-plates, no border, white words with key numbers, the pointed-at one solid with
-yellow; the page's buttons are invisible tap areas on top (`setUiStyle({ hud:
-'clean' })` shows plain page buttons instead). A busy person
-has `n.act` ({ kind: 'wait' | 'talk' | 'retaliate' | 'chase' | 'flee' |
-'slip' }) and is moved by `ix.updateNpc`; `City.endAct(n)` puts them back
-on their route. Chasers are furious: they sprint at `CHASE_SPEED` (= `NPC_RUN_SPEED`,
-3.68 m/s: you run 1.25x faster, `PLAYER_RUN_SPEED` 4.6, both in anim/gait.js), yell `CHASE_YELLS`, shove you off a bicycle or
-scooter (`getOff` + slip; a car keeps you safe), and give up after 10 s,
-two hits, or once you are 300 m away. A scared person (`act` 'flee') goes
-to `City.startFlee(n)`: they become a walker on their own or the nearest
-pavement route (`n.flee.left` = 300 m, `n.fleeRole` keeps their old role),
-run at `NPC_RUN_SPEED` away from you, crossing roads more often, then `endAct` walks
-them back to their place. Bubbles (`ix.bubbles`: chat and comic bursts with an
-`anchor()` position) and the pie menu (`ix.menu`) are drawn by the viewer as
-page elements; a game can draw its own. Speech is floating pixel text over the head
-(`PixelOverlay.drawFloating`, design B of labs/bubble-lab.html): no box,
-1 px ink outline, talk light, shouts yellow and shaking; lines never cover
-each other (the oldest keeps its place, newer ones move up or aside); one
-line per person (anchors from `headOf` / `playerHead` carry `who`, a new
-line replaces the old, which drifts up fading); lines fade out at the end.
-Earshot: full size within 7 m of you (shouts 12 m), then smaller (to half)
-and fainter, gone past 22 m (shouts 34 m).
-Speech is quick: answers after 0.45 s, shouts within 0.2 s, group chat every
-0.7-1.6 s (sometimes two at once), bench chat every 0.8-2 s; the open pie menu counts as taken (and sits on top). People
-knocked down raise a dust cloud. Hits are animated by `poseActor` from
-`ANIM` (attacker swing in `who.action`, slap reaction in `who.comic`, falls
-in act 'slip' with `anim` or by temper, the lying part stretched to fit the
-act). People on benches chat now and then, rest their hands on their laps
-and jump in their seats shouting when chaos happens near them
-(`ix.startleNear`, `n.startle`). They stay seated while you use the menu,
-talk to or slap them (`SEATED` acts, `ix.updateSeated`: sitting pose, head
-turned to you, a slap = a jump in the seat and a shout); a push or power
-slap still knocks them off. The slap charge is a small dial over the
-target's head (`#charge`). Traffic brakes at 7 m/s², so stepping out
-right in front of a moving car gets you hit (`ix.hitByCar`: thrown, flat on
-the ground, the driver shouts). Small talk lives in `src/city/smalltalk.js` (`SMALL_TALK`: 50
-[question, calm answer, aggressive answer]; every answer fits its question).
-Change the lines there and in `SHOUTS`,
-`BURSTS`. People have an optional `name` (from the look / character JSON
-`name`, else none; `ix.nameOf`), not shown for now; lines never use names. Bubble kinds: 'talk', 'shout', 'burst' ('confused' draws a '?' box, unused); `ix.shake` is a screen-shake amount the viewer applies.
-
-**Night and weather.** Night is the `Night` lighting preset (`night: true`):
-`setNightGlow(root, on)` makes lamps, signs, shop interiors and lit windows
-glow by changing the shared style materials (no real lights). A painted
-texture that should only partly glow carries a light mask in
-`texture.userData.glowMap` (see `curtainTexture`, `officeTexture`): paint one
-for any new painted window texture. `setSnowCover(root, on)` whitens roles
-(ground, grass, roof, leaf, ...). They remember each material's own glow and colour in a
-WeakMap (never in `userData`: cloning a material mangles it, which once made
-cars black). Both change shared materials, so apply them
-per scene and switch them off when leaving (the viewer does this for snow).
-Rain and snow are faked around the camera, not a box in the world
-(`Precipitation.update(dt, camera, { pixels, distance })`, called after the
-camera moves): one layer drawn on top, always covering the view, no edges.
-Sizes and density are real-world for the view at the player (0.5 m streaks,
-8 cm flakes; iso: the orthographic view size, third person: the view size
-at the camera's distance to the player), so both cameras behave the same:
-zoomed out, many small drops. Zoomed in past a 24 m tall view, the screen
-size and number of drops stay as at that view, so close up the weather
-looks the same and never gets in the way.
-
-**No coplanar surfaces.** Two surfaces facing the same way must be ≥ 2 cm
-apart or they flicker on phones. Keep the 24-bit depth buffer in `ps1.js`.
-
-## Characters (optional for games)
-
-`human.build(params, style)` builds a person from settings. A game may use
-these characters, or not use them at all.
-
-**Character JSON** (exported from 👤 Characters with ⬇ JSON):
-
-```json
-{ "format": "tiny-character", "version": 1, "params": { "bodyType": "Woman", "build": "Normal", "hair": "...", ... } }
-```
-
-`params` holds the values of `human.schema` (`src/subjects/human.js`): body
-(`bodyType` Man / Woman / Boy / Girl / Grandpa / Grandma, `build` Skinny / Normal / Bulky / Fat,
-`height`, `headsTall`, `legLength`, widths and thicknesses, `skin`), hair and
-face (`hair`, `hairColor`, `beard`, `moustache`, `headwear`, `mask`,
-`faceAccessory`), clothes (`top`, `legwear`, `outerwear`, `footwear`, each with
-a colour) and accessories (`backAccessory`, `bodyAccessory`, `handItem`).
-Hand items: shopping bag, briefcase, umbrella, walking stick (hanging, swing
-with the arm) and umbrella (open), phone, ice cream, coffee cup, boxes (held:
-the arms take a pose from `HOLD_POSES` in `human/handheld.js`, kept by
-`poseHold` while walking). `giveHeldItem(body, params, kind, color, style)`
-hands a held item to an already built (even skinned) person and returns a
-function that takes it away (the city uses it for umbrellas in the rain).
-`human.outfits` holds ready-made looks (clothes only): Office worker, Police
-officer, Delivery worker, Summer stroll, Rainy day, Coffee run, On the phone.
-`human.schema[key]` gives each key's options or min / max and default.
-
-To use one in a game:
-
-```js
-import { human } from './src/subjects/human.js';
-const { params } = JSON.parse(text);
-const p = { ...defaults, ...params };      // defaults from human.schema
-human.applyRules(p);                        // fix combinations the rules forbid
-const person = human.build(p, style);       // animate with poseGait (src/anim/gait.js)
-```
-
-Rules (`human/rules.js`): no facial hair on women and children; no skirts or
-crop tops on men and boys; ties need a shirt; sailor uniform for women and
-girls, gakuran for men and boys (not for grandparents); children don't carry
-babies; yukata hides legwear. Grandparents stand with a stoop
-(`userData.stoop`) and walk slowly in the city. `BODY_DEFAULTS` holds each body type's default design. Each game
-decides what players may change.
-
-## Common tasks
-
-**Every seed must give a really different building.** `params.seed` feeds
-`rng`; the catalogue's 🎲 New look and every generated town rely on it. A
-builder draws from `rng` (never `Math.random`), in this order of importance:
-shape (floors, width / depth used, roof, wings, setbacks), layout (door side
-with `side(rng)`, where signs and displays go), details (awnings, balconies,
-AC units, `frontExtras`), and only then colours. Colour alone reads as "the
-same building". Use the helpers in `src/city/variety.js`: `flatsAbove`
-(flats over a shop), `roofTop` (flat roof with parapet and clutter, or a
-pitched roof), `frontExtras` (bikes, boards, planters, vending machines).
-Check six seeds side by side before committing.
-
-**Backs and sides are dressed automatically.** After a building is built,
-`dressBacks` (`city/backs.js`, called in the catalogue) feels its walls with
-rays and adds curtained windows (lit at night), AC units, a back door, a
-drain pipe and, on 3+ floors, a steel emergency staircase to the back and
-sides, only on bare `building`-role walls (painted facades and other roles
-are left alone). A builder only needs to detail its street front. Open
-structures are skipped (`BARE_OK` in `catalog/index.js`).
-
-**Add a building.** Write `myBuilding(style, rng, w, d)` (fills a lot w × d,
-faces +z, returns `{ group, footprint, colliders }`) in `shops.js` /
-`civic.js` (reuse `body`, `signboard`, `awning`, `noren`, `upperFloors`,
-`shopWindow`), add it to `SHOP_BUILDINGS` / `CIVIC_BUILDINGS` with label and
-lot size, give it a painted interior (`PAINT` in `interiors.js`). Optionally
-add it to block fills in `layout.js`. It then appears in the Catalogue.
-European houses are the same idea in `europe.js` (`EUROPE_BUILDINGS`), and
-they are not added to `layout.js`. `BARE_OK` in `catalog/index.js` skips them
-so `dressBacks` does not hang Japanese fittings on them. Bump
-`VERSION` in `catalog/thumbs.js` if an existing item's look changes (now 9: octagon wheels).
-
-**Add a prop.** Add `{ id, label, variants, colors?, build(params, style) }` to
-a file in `src/props/`, list it in `PROP_GROUPS` (`props/index.js`), add its
-collider in `PROP_COLLIDERS` (`catalog/index.js`).
-
-**Add a block type.** Add it to `BLOCK_TYPES` (`format.js`) and a branch in
-`blockObjects` (`layout.js`).
-
-**Add a character option.** Add it to `human.schema` (its group decides the
-creator tab, `TAB_OF` in `Creator.js`), build it in the right `human/*.js`
-file, add rules in `rules.js` if needed, and add it to `randomize` and the
-default designs if relevant.
-
-## Testing and checking
-
-No unit tests; verify by building and looking.
-
-- `npm run build` must pass.
-- Diner layouts: `node scripts/check-diner-layout.mjs` (seeds 0–50).
-- Office seeds: `node src/office/seedLayout.test.js` (seed 0 and seeds 1–50).
-- Room seeds: `node scripts/check-room-seeds.mjs` (clinic, police, minimarket, meeting, bedroom, studio, cafe, classroom, open office; seeds 0–50).
-- Drive the viewer with Playwright (Chromium is preinstalled; use
-  `--use-gl=angle --use-angle=swiftshader`): `npx vite preview`, open the
-  page, use `window.__cc` and take screenshots.
-- Hooks on `window.__cc`: `params`, `state`, `setView('catalog'|'item'|'creator'|'city')`,
-  `openItem(id, params)`, `CATALOG`, `human` (presets, outfits), `apply('human', values)`, `orbit(az)`,
-  `gait.lock = fraction` (freeze the walk), `getCity()` (`player`, `npcs`,
-  `cars`, `cats`, `cam`, `iso`, `setViewMode('iso'|'third')`, `setWeather(kind)`, `ix` interactions),
-  `newTown(seed)`, `cityInput`, `tuneOf(look)` (a walk / run tune), `setUiStyle({ world, hud })`, `COMEDY` and `comedy(kind, n, t)` (show comic hit
-  variation n of 'slap' | 'push' | 'fall' from `src/city/comedy.js` on two people
-  beside you, at time t; `comedy(null)` clears it). The app bar's ☀ / 🌤 buttons switch light and weather.
-- To look at one building: `openItem('building.bank')`, or place the player
-  in the city with `getCity().player.position.set(...)`.
-- Check desktop (1280 × 720) and phone (390 × 844).
-- Soak test the city: fast-forward `getCity().update(0.1, fakeInput)` a few
-  thousand times in several towns and weathers (moving the player about),
-  and fail on any exception. One crash in an update used to stop the render
-  loop and black the city out; main.js now catches it, but fix the cause.
-- Watch costs: count meshes and triangles of `getCity().scene`.
+Check desktop (1280×720) and phone (390×844).
 
 ## Conventions
 
-- Plain ES modules, three.js, no frameworks. Two-space indent, comments that
-  explain why. Metres; +z faces the street; y up.
-- Keep the PS1 look (STYLE_GUIDE.md): few polygons, flat colours, oversized
-  small details.
-- Keep it simple: build only what was asked. The owner decides what to add.
-- Commit messages: a short title, then what changed and why.
+Plain ES modules, three.js, no framework. Two-space indent. Metres. People
+and buildings face +z and stand on y = 0. Colours go through `style.material`
+and the palette. Keep the PS1 look (`STYLE_GUIDE.md`).
+
+Commit messages: a short title, then what changed and why.
 
 ## Keeping the docs up to date
 
 Every change that adds, removes or renames a feature, file, asset, setting,
-rule or workflow updates, in the same commit: `SKILLS.md` (this file),
-`PLAN.md` (done / next / decisions), `STYLE_GUIDE.md` (looks) and `README.md`.
+rule or workflow updates, in the same commit: this file, `PLAN.md`, and
+`STYLE_GUIDE.md` if the look changed, and `README.md` if what the app does
+for a person changed.

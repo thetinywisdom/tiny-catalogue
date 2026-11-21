@@ -3,54 +3,25 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Tiny City Builder</title>
+    <title>Tiny Catalogue</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23f2b64a'/%3E%3C/svg%3E" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap" />
   </head>
   <body>
     <canvas id="c"></canvas>
     <header id="hud">
-      <div class="title"><strong>Tiny City Builder</strong></div>
-      <nav id="modes" aria-label="Mode">
-        <button type="button" data-mode="catalog">📦<span> Catalogue</span></button>
-        <button type="button" data-mode="characters">👤<span> Characters</span></button>
-        <button type="button" data-mode="city">🏙<span> City</span></button>
-        <button type="button" data-mode="catlab">🐱<span> Cat lab</span></button>
-      </nav>
+      <div class="title"><strong>Tiny Catalogue</strong></div>
       <span id="hint"></span>
-      <button id="paletteBtn" type="button" title="Colour palette">🎨<span> Colours</span></button>
       <span class="spacer"></span>
-      <button id="newTownBtn" class="city-only" type="button" title="Generate a different town" hidden>🎲<span> New town</span></button>
-      <button id="lightBtn" class="city-only" type="button" title="Time of day" hidden>☀<span> Day</span></button>
-      <button id="weatherBtn" class="city-only" type="button" title="Weather" hidden>🌤<span> Clear</span></button>
-      <button id="padBtn" class="city-only" type="button" title="Button layout" hidden>🎮<span> Buttons</span></button>
-      <button id="viewBtn" class="city-only" type="button" title="Isometric / third person (V)" hidden>🎥<span> Iso view</span></button>
-      <button id="walkLabBtn" class="city-only dev-only" type="button" title="Try ways of walking and running" hidden>🚶<span> Walk lab</span></button>
+      <button id="paletteBtn" type="button" title="Colour palette">🎨<span> Colours</span></button>
     </header>
-    <main id="catalog" hidden>
+    <main id="catalog">
       <div class="cat-tabs"></div>
       <div class="cat-grid"></div>
     </main>
     <aside id="item" hidden></aside>
-    <aside id="walkLab" hidden></aside>
-    <div id="catLab" hidden></div>
-    <div id="joystick" hidden><div class="knob"></div></div>
-    <div id="overlay" hidden><div id="pie" hidden>
-      <button type="button" data-n="0" title="Slap (1, hold to charge)" aria-label="Slap"></button>
-      <button type="button" data-n="1" title="Push (2)" aria-label="Push"></button>
-      <button type="button" data-n="2" title="Talk (3)" aria-label="Talk"></button>
-      <button type="button" data-n="3" title="Fart (4)" aria-label="Fart"></button>
-    </div></div>
     <div id="palettePanel" hidden role="dialog" aria-label="Colour palette"></div>
-    <div id="cityActions" hidden><!-- the action buttons (ui/actionPad.js) --></div>
-    <div id="rotateHint" role="dialog" aria-label="Turn your phone sideways" hidden>
-      <div class="rot-card">
-        <div class="rot-phone" aria-hidden="true"></div>
-        <p>TURN YOUR PHONE SIDEWAYS</p>
-        <small>The city plays best in landscape.</small>
-        <div class="rot-btns"><button type="button" id="rotateGo">GO LANDSCAPE</button><button type="button" id="rotateSkip">PLAY ANYWAY</button></div>
-      </div>
-    </div>
     <div id="toast" role="status" hidden></div>
     <script type="module" src="/src/main.js"></script>
   </body>

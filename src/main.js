@@ -1,36 +1,20 @@
-import { CatLab } from './ui/catLab.js';
-import { WalkLab } from './ui/walkLab.js';
-import { PixelOverlay } from './ui/pixelOverlay.js';
-import { ActionPad, PAD_LAYOUTS } from './ui/actionPad.js';
-import { ComedyStage, COMEDY } from './city/comedy.js';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { subjects } from './subjects/index.js';
 import { lightingPresets, style } from './styles/index.js';
 import { Cell } from './viewer/Cell.js';
-import { defaultsFor, loadParams, saveParams } from './viewer/params.js';
 import { createPs1Renderer } from './render/ps1.js';
 import { ASSETS, CATALOG, createAsset } from './catalog/index.js';
 import { thumbInto } from './catalog/thumbs.js';
-import { City } from './city/City.js';
-import { CHARGE } from './city/interact.js';
-import { CityInput } from './city/input.js';
-import { generateCityData } from './city/layout.js';
-import { setNightGlow, setSnowCover } from './city/atmosphere.js';
 import { SHOP_TYPES } from './city/buildings.js';
-import { Creator } from './creator/Creator.js';
+import { human } from './subjects/human.js';
 import { RUN_SPEED, WALK_SPEED, createGait, poseGait, setGaitEngine, stepGait, tuneOf } from './anim/gait.js';
 import { CAT_RUN_SPEED, CAT_WALK_SPEED, createCatGait, poseCat, stepCatGait } from './anim/catGait.js';
 import { tickProps } from './anim/props.js';
-import { saveFile, openTextFile } from './lib/saveFile.js';
-import { CLOTH_COLORS, PALETTE, PALETTES, activePalette, choosePalette, swatchOf } from './styles/palette.js';
+import { CLOTH_COLORS, HAIR_COLORS, PALETTE, PALETTES, SKIN_TONES, activePalette, choosePalette, swatchOf } from './styles/palette.js';
 import './style.css';
 
-// Tiny City Builder: a viewer for the foundation that games are built on.
-//   📦 Catalogue   every placeable item, with its id and settings
-//   👤 Characters  design a character and export / import it as JSON
-//   🏙 City        walk a generated sample town (third person or isometric)
-// Everything shown here is plain modules under src/ that games reuse (see SKILLS.md).
+// Tiny Catalogue: every placeable thing, and the people, in one list.
+// Open an item, turn it, change its settings, copy the createAsset(...) line.
 
 const canvas = document.querySelector('#c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -40,9 +24,7 @@ renderer.shadowMap.type = THREE.PCFShadowMap;
 const ps1 = createPs1Renderer(renderer);
 const PAGE_BG = new THREE.Color('#1d1f23');
 
-const params = loadParams(subjects);
-const human = subjects.find((s) => s.id === 'human');
-const state = { ui: { hud: 'pixel' }, view: 'catalog', anim: 'Still', itemAnim: 'Walk', lighting: 'Day', weather: 'Clear', citySeed: 3, cityView: 'third' };
+const state = { view: 'catalog', itemAnim: 'Walk', lighting: 'Day' };
 
 const hint = document.querySelector('#hint');
 const toastEl = document.querySelector('#toast');
@@ -54,16 +36,27 @@ function toast(msg) {
   toastTimer = setTimeout(() => { toastEl.hidden = true; }, 2600);
 }
 
-// A preview stage + orbit camera, shared by the catalogue and the character creator.
 const camera = new THREE.PerspectiveCamera(30, 1, 0.01, 500);
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true;
 let reframe = true;
 
 // ---------------------------------------------------------------------------
-// 📦 Catalogue
+// Catalogue
 // ---------------------------------------------------------------------------
-const TABS = [['palette', '🎨 Palette'], ['all', 'All'], ['buildings', 'Buildings'], ['street', 'Street'], ['traffic', 'Traffic'], ['extras', 'Extras'], ['nature', 'Nature'], ['animals', 'Animals'], ['vehicles', 'Vehicles'], ['office', 'Office'], ['diner', 'Diner'], ['clinic', 'Clinic'], ['police', 'Police'], ['minimarket', 'Minimarket'], ['meeting', 'Meeting'], ['bedroom', 'Bedroom'], ['studio', 'Studio'], ['cafe', 'Cafe'], ['classroom', 'Classroom'], ['openoffice', 'Open office'], ['ramen', 'Ramen'], ['kitchen', 'Kitchen'], ['library', 'Library'], ['dojo', 'Dojo'], ['station', 'Station'], ['areas', 'Areas']];
+const TABS = [
+  ['palette', '🎨 Palette'],
+  ['all', 'All'],
+  ['buildings', 'Buildings'],
+  ['street', 'Street'],
+  ['traffic', 'Traffic'],
+  ['extras', 'Extras'],
+  ['nature', 'Nature'],
+  ['animals', 'Animals'],
+  ['people', 'People'],
+  ['vehicles', 'Vehicles'],
+  ['areas', 'Areas'],
+];
 const catalogEl = document.querySelector('#catalog');
 const itemEl = document.querySelector('#item');
 const items = ASSETS.filter((a) => a.group);
@@ -71,17 +64,35 @@ let catTab = 'all';
 let selected = null; // { id, params }
 let itemCell = null;
 
+const HUMAN_ANIMS = ['Still', 'Walk', 'Run'];
+const CAT_ANIMS = ['Still', 'Walk', 'Run', 'Sit', 'Loaf', 'Sleep'];
+const SWATCH = {
+  skin: SKIN_TONES,
+  hairColor: HAIR_COLORS,
+  headwearColor: CLOTH_COLORS,
+  accessoryColor: CLOTH_COLORS,
+  maskColor: CLOTH_COLORS,
+  backColor: CLOTH_COLORS,
+  bodyAccessoryColor: CLOTH_COLORS,
+  handItemColor: CLOTH_COLORS,
+  topColor: CLOTH_COLORS,
+  legwearColor: CLOTH_COLORS,
+  outerwearColor: CLOTH_COLORS,
+  shoeColor: CLOTH_COLORS,
+};
+const OPTION_LABELS = { pattern: 'Pattern', tailType: 'Tail', earType: 'Ears', coat: 'Coat' };
+
 function renderCatalog() {
   const tabs = catalogEl.querySelector('.cat-tabs');
   tabs.replaceChildren(...TABS.map(([k, l]) => {
-    const b = Object.assign(document.createElement('button'), { textContent: k === 'palette' ? l : `${l} ${k === 'all' ? items.length : items.filter((a) => a.group === k).length}` });
+    const count = k === 'palette' ? '' : ` ${k === 'all' ? items.length : items.filter((a) => a.group === k).length}`;
+    const b = Object.assign(document.createElement('button'), { textContent: k === 'palette' ? l : `${l}${count}` });
     b.classList.toggle('on', k === catTab);
     b.onclick = () => { catTab = k; renderCatalog(); };
     return b;
   }));
   const grid = catalogEl.querySelector('.cat-grid');
   if (catTab === 'palette') {
-    // the colour palette everything snaps to (styles/palette.js)
     grid.replaceChildren(...Object.entries(PALETTE).map(([name, hex]) => {
       const card = document.createElement('div');
       card.className = 'cat-card pal-card';
@@ -106,226 +117,157 @@ function renderCatalog() {
 function openItem(id, p) {
   const a = CATALOG[id];
   selected = { id, params: { ...a.params, ...p } };
+  if (a.animated === 'human' && !HUMAN_ANIMS.includes(state.itemAnim)) state.itemAnim = 'Walk';
   const subject = { id: 'item', label: a.label, schema: {}, isProp: true, build: (_q, st) => createAsset(id, selected.params, st) };
   itemCell = new Cell({ entries: [{ subject, tight: !!a.fillFrame }], style, renderer, viewDir: a.viewDir });
   itemCell.rebuild({});
   itemCell.applyLighting(lightingPresets[state.lighting]);
-  setNightGlow(itemCell.scene, !!lightingPresets[state.lighting].night);
   reframe = true;
   renderItemPanel();
   setView('item');
 }
 
-const OPTION_LABELS = { pattern: 'Pattern', tailType: 'Tail', earType: 'Ears', coat: 'Coat' };
-// One seed box for every furnished room. A kit opts in with seedInput or
-// seedControl, or by being a *.room that already stores a seed. Other seeded
-// props keep the New look button. Randomize skips 0, the hand-made layout.
-function usesRoomSeed(a) {
-  return !!(a.seedInput || a.seedControl || (a.id.endsWith('.room') && 'seed' in (a.params ?? {})));
+const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+
+function assetCode() {
+  const a = CATALOG[selected.id];
+  const shown = a.resolve ? a.resolve(selected.params) : selected.params;
+  return `createAsset('${a.id}', ${JSON.stringify(shown)}, style)`;
 }
+
+function chips(label, key, values, swatch = false, current, swatches) {
+  if (!values || values.length < 2) return '';
+  return `<h3>${esc(label)}</h3><div class="chips">${values.map((v) => {
+    const on = (current ?? '') === (v ?? '');
+    const hex = swatch ? (swatches?.[v] ?? CLOTH_COLORS[v] ?? 0x888888) : 0;
+    const styleAttr = swatch ? ` title="${esc(v)}" style="background:#${hex.toString(16).padStart(6, '0')}"` : '';
+    return `<button type="button" data-k="${esc(key)}" data-v="${esc(v ?? '')}" class="${on ? 'on' : ''}${swatch ? ' sw' : ''}"${styleAttr}>${swatch ? '' : esc(v ?? 'Any')}</button>`;
+  }).join('')}</div>`;
+}
+
+function sliderRow(label, key, def, value) {
+  const step = def.step ?? 0.01;
+  const places = Math.max(0, (String(step).split('.')[1] || '').length);
+  return `<div class="slider"><span>${esc(label)}</span><input data-act="slider" data-k="${esc(key)}" type="range" min="${def.min}" max="${def.max}" step="${step}" value="${value}" aria-label="${esc(label)}"><output>${Number(value).toFixed(places)}</output></div>`;
+}
+
+function humanControlsHtml(look) {
+  const hidden = human.hiddenControls(look);
+  const parts = [];
+  let group = '';
+  for (const [key, def] of Object.entries(human.schema)) {
+    if (hidden.keys.has(key) || hidden.groups.has(def.group)) continue;
+    if (def.group !== group) {
+      group = def.group;
+      parts.push(`<h3>${esc(group)}</h3>`);
+    }
+    const label = human.labelFor(key, look) ?? def.label;
+    if (def.options) {
+      const values = human.allowedOptions(key, look);
+      const map = SWATCH[key];
+      const buttons = values.map((v) => {
+        const on = look[key] === v;
+        if (map) {
+          const hex = (map[v] ?? 0x888888).toString(16).padStart(6, '0');
+          return `<button type="button" data-k="${esc(key)}" data-v="${esc(v)}" class="sw${on ? ' on' : ''}" title="${esc(v)}" style="background:#${hex}"></button>`;
+        }
+        return `<button type="button" data-k="${esc(key)}" data-v="${esc(v)}" class="${on ? 'on' : ''}">${esc(v)}</button>`;
+      }).join('');
+      parts.push(`<p class="it-note">${esc(label)}</p><div class="chips">${buttons}</div>`);
+    } else {
+      parts.push(sliderRow(label, key, def, look[key]));
+    }
+  }
+  return parts.join('');
+}
+
 function renderItemPanel() {
   const a = CATALOG[selected.id];
   const p = selected.params;
-  const chips = (label, key, values, swatch = false) => {
-    if (!values || values.length < 2) return '';
-    return `<h3>${label}</h3><div class="chips">${values.map((v) => `<button data-k="${key}" data-v="${v ?? ''}" class="${(p[key] ?? '') === (v ?? '') ? 'on' : ''}${swatch ? ' sw' : ''}" ${swatch ? `title="${v}" style="background:#${(a.swatches?.[v] ?? CLOTH_COLORS[v] ?? 0x888888).toString(16).padStart(6, '0')}"` : ''}>${swatch ? '' : v ?? 'Any'}</button>`).join('')}</div>`;
-  };
-  const shopTypes = 'shopType' in a.params ? [null, ...SHOP_TYPES] : null;
-  const code = `createAsset('${a.id}', ${JSON.stringify(p)}, style)`;
+  const look = a.kind === 'human' ? a.resolve(p) : null;
+  const code = assetCode();
+  const shopTypes = 'shopType' in (a.params ?? {}) ? [null, ...SHOP_TYPES] : null;
+  const anims = a.animated === 'human' ? HUMAN_ANIMS : a.animated === 'cat' ? CAT_ANIMS : null;
+  const animNow = a.animated === 'human' && !HUMAN_ANIMS.includes(state.itemAnim) ? 'Walk' : state.itemAnim;
   itemEl.innerHTML = `
-    <div class="it-head"><button data-act="back">← Catalogue</button><b>${a.label}</b></div>
+    <div class="it-head"><button type="button" data-act="back">← Catalogue</button><b>${esc(a.label)}</b></div>
     <div class="it-body">
-      <p class="it-id"><code>${a.id}</code> · ${a.category} · about ${a.size[0]} × ${a.size[1]} m</p>
-      ${chips('Type', 'variant', a.variants)}
-      ${chips('Colour', 'color', a.colors, true)}
-      ${chips('Shop', 'shopType', shopTypes)}
-      ${Object.entries(a.options ?? {}).map(([k, vals]) => chips(OPTION_LABELS[k] ?? k, k, vals)).join('')}
-      ${a.animated ? `<h3>Animation</h3><div class="chips">${['Still', 'Walk', 'Run', 'Sit', 'Loaf', 'Sleep'].map((m) => `<button data-anim="${m}" class="${state.itemAnim === m ? 'on' : ''}">${m}</button>`).join('')}</div>` : ''}
-      ${usesRoomSeed(a)
-        ? `<h3>Layout seed</h3><div class="seed-row"><input data-act="seed-num" type="number" step="1" value="${Number.isFinite(Number(p.seed)) ? Math.trunc(Number(p.seed)) : 0}" aria-label="Layout seed"><button data-act="seed-random">Randomize</button></div><p class="it-note">0 is the hand-made layout. The same number rebuilds the same room.</p>`
-        : ('seed' in (a.params ?? {}) ? '<h3>Look</h3><div class="chips"><button data-act="seed">🎲 New look</button></div>' : '')}
+      <p class="it-id"><code>${esc(a.id)}</code> · ${esc(a.category)} · about ${a.size[0]} × ${a.size[1]} m</p>
+      ${a.kind === 'human' ? humanControlsHtml(look) : `
+        ${chips('Type', 'variant', a.variants, false, p.variant)}
+        ${chips('Colour', 'color', a.colors, true, p.color, a.swatches)}
+        ${chips('Shop', 'shopType', shopTypes, false, p.shopType)}
+        ${Object.entries(a.options ?? {}).map(([k, vals]) => chips(OPTION_LABELS[k] ?? k, k, vals, false, p[k])).join('')}
+      `}
+      ${anims ? `<h3>Animation</h3><div class="chips">${anims.map((m) => `<button type="button" data-anim="${m}" class="${animNow === m ? 'on' : ''}">${m}</button>`).join('')}</div>` : ''}
+      ${a.kind === 'human'
+        ? `<h3>Look</h3><div class="chips"><button type="button" data-act="seed">🎲 New look</button></div><p class="it-note">Seed ${look.seed}. This tile's body type stays. The same seed rebuilds the same person. A setting you change stays until the next New look.</p>`
+        : ('seed' in (a.params ?? {}) ? '<h3>Look</h3><div class="chips"><button type="button" data-act="seed">🎲 New look</button></div>' : '')}
       <h3>Use it in a game</h3>
-      <pre>${code}</pre>
-      <button data-act="copy">Copy</button>
+      <pre></pre>
+      <button type="button" data-act="copy">Copy</button>
     </div>`;
-  itemEl.onmousedown = (e) => {
-    // Keep a seed number from blurring (and rebuilding) before Randomize runs.
-    if (e.target.closest('[data-act="seed-random"]')) e.preventDefault();
+  itemEl.querySelector('pre').textContent = code;
+  itemEl.oninput = (e) => {
+    const r = e.target;
+    if (r.dataset.act !== 'slider') return;
+    const key = r.dataset.k;
+    const value = Number(r.value);
+    selected.params = { ...selected.params, [key]: value };
+    const places = Math.max(0, (String(r.step).split('.')[1] || '').length);
+    r.parentElement.querySelector('output').textContent = value.toFixed(places);
+    itemEl.querySelector('pre').textContent = assetCode();
+    itemCell.rebuild({});
   };
   itemEl.onchange = (e) => {
-    if (e.target.dataset.act !== 'seed-num') return;
-    const n = Math.trunc(Number(e.target.value));
-    selected.params.seed = Number.isFinite(n) ? n : 0;
-    openItem(selected.id, selected.params);
+    if (e.target.dataset.act === 'slider') reframe = true;
   };
   itemEl.onclick = (e) => {
     const b = e.target.closest('button');
     if (!b) return;
     if (b.dataset.act === 'back') return setView('catalog');
     if (b.dataset.anim) { state.itemAnim = b.dataset.anim; return renderItemPanel(); }
-    if (b.dataset.act === 'copy') return navigator.clipboard?.writeText(code).then(() => toast('Copied'), () => toast(code));
-    if (b.dataset.act === 'seed') selected.params.seed = Math.floor(Math.random() * 1e9);
-    if (b.dataset.act === 'seed-random') selected.params.seed = 1 + Math.floor(Math.random() * 1e9);
-    if (b.dataset.k) selected.params[b.dataset.k] = b.dataset.v === '' ? null : b.dataset.v;
-    openItem(selected.id, selected.params);
+    if (b.dataset.act === 'copy') {
+      const text = itemEl.querySelector('pre').textContent;
+      return navigator.clipboard?.writeText(text).then(() => toast('Copied'), () => toast(text));
+    }
+    if (b.dataset.act === 'seed') {
+      const next = 1 + Math.floor(Math.random() * 1e9);
+      if (a.kind === 'human') selected.params = { seed: next };
+      else selected.params.seed = next;
+      return openItem(selected.id, selected.params);
+    }
+    if (b.dataset.k) {
+      const key = b.dataset.k;
+      const value = b.dataset.v === '' ? null : b.dataset.v;
+      if (a.kind === 'human' && key === 'bodyType') {
+        const next = a.resolve(selected.params);
+        const prev = next.bodyType;
+        next.bodyType = value;
+        human.adjust(next, 'bodyType', prev);
+        human.applyRules(next);
+        selected.params = { ...next };
+      } else {
+        selected.params = { ...selected.params, [key]: value };
+      }
+      openItem(selected.id, selected.params);
+    }
   };
 }
 
 // ---------------------------------------------------------------------------
-// 👤 Characters
+// Views
 // ---------------------------------------------------------------------------
-const humanCell = new Cell({ entries: [{ subject: human }], style, renderer });
-humanCell.rebuild(params);
-humanCell.applyLighting(lightingPresets[state.lighting]);
-let lastHuman = { ...params.human };
-setGaitEngine(params.human.animation);
-/** After any change: apply the character rules, rebuild the preview, remember the settings. */
-function humanChanged(key) {
-  if (key) human.adjust?.(params.human, key, lastHuman[key]);
-  human.applyRules?.(params.human);
-  setGaitEngine(params.human.animation); // New (foot targets + IK) or Classic, for everyone
-  lastHuman = { ...params.human };
-  humanCell.rebuild(params);
-  saveParams(params);
-  city = null; // the city's player is this character
-}
-const CHARACTER_FORMAT = 'tiny-character';
-const creator = new Creator({
-  subject: human,
-  params: params.human,
-  onChange: (key) => { humanChanged(key); if (['bodyType', 'height', 'headsTall', 'legLength', 'build'].includes(key)) reframe = true; },
-  actions: {
-    randomize: () => { Object.assign(params.human, human.randomize()); humanChanged(); reframe = true; },
-    reset: () => { Object.assign(params.human, defaultsFor(human), human.presets[params.human.bodyType]); humanChanged(); reframe = true; },
-    preset: (name) => { Object.assign(params.human, human.presets[name]); humanChanged(); reframe = true; },
-    anim: (a) => { state.anim = a; },
-    getAnim: () => state.anim,
-    // export / import the character as JSON (format: SKILLS.md, "Character JSON")
-    exportJson: async () => {
-      const json = JSON.stringify({ format: CHARACTER_FORMAT, version: 1, params: params.human }, null, 1);
-      const ok = await saveFile(`character-${params.human.bodyType.toLowerCase()}.json`, json);
-      if (!ok) { navigator.clipboard?.writeText(json); toast('Copied the JSON instead'); }
-    },
-    importJson: async () => {
-      const text = await openTextFile('.json,application/json');
-      if (text == null) return;
-      try {
-        const d = JSON.parse(text);
-        const p = d.format === CHARACTER_FORMAT ? d.params : d; // a bare settings object works too
-        Object.assign(params.human, defaultsFor(human), p);
-        humanChanged(); reframe = true;
-        toast('Character loaded');
-      } catch { toast('That file is not a character JSON'); }
-    },
-  },
-});
-
-// ---------------------------------------------------------------------------
-// 🏙 City
-// ---------------------------------------------------------------------------
-const joystick = document.querySelector('#joystick');
-const cityInput = new CityInput(canvas, joystick);
-let city = null;
-function ensureCity() {
-  if (!city) {
-    city = new City({ style, renderer, human, cat: subjects.find((s) => s.id === 'cat'), params, data: generateCityData(state.citySeed) });
-    city.applyLighting(lightingPresets[state.lighting]);
-    if (state.weather !== 'Clear') city.setWeather(state.weather);
-    if (state.cityView === 'iso') city.setViewMode('iso');
-  }
-  return city;
-}
-const viewBtn = document.querySelector('#viewBtn');
-function updateCityBar() {
-  const iso = city?.viewMode === 'iso';
-  viewBtn.innerHTML = iso ? '🎥<span> 3rd person</span>' : '🎥<span> Iso view</span>';
-  document.querySelector('#lightBtn').innerHTML = `${{ Day: '☀', Sunset: '🌇', Night: '🌙' }[state.lighting]}<span> ${state.lighting}</span>`;
-  document.querySelector('#weatherBtn').innerHTML = `${{ Clear: '🌤', Rain: '🌧', Snow: '❄' }[state.weather]}<span> ${state.weather}</span>`;
-  hint.textContent = iso
-    ? 'WASD / arrows · Shift run · drag to turn · scroll or pinch to zoom · < > rotate · V third person · E interact / ride · click: menu · hold: slap · double: push · right: talk · B banana'
-    : 'WASD / arrows · Shift run · drag to look · E interact / ride · Space jump · click: menu · hold: slap · double: push · right: talk · B banana · V iso';
-}
-viewBtn.onclick = () => { state.cityView = ensureCity().setViewMode(); updateCityBar(); };
-document.querySelector('#newTownBtn').onclick = () => { state.citySeed = Math.floor(Math.random() * 1000); city = null; ensureCity(); toast(`Town #${state.citySeed}`); };
-document.querySelector('#lightBtn').onclick = () => {
-  const names = Object.keys(lightingPresets);
-  state.lighting = names[(names.indexOf(state.lighting) + 1) % names.length];
-  for (const c of [city, humanCell, itemCell]) c?.applyLighting(lightingPresets[state.lighting]);
-  if (itemCell) setNightGlow(itemCell.scene, !!lightingPresets[state.lighting].night);
-  updateCityBar();
-};
-document.querySelector('#weatherBtn').onclick = () => {
-  const all = ['Clear', 'Rain', 'Snow'];
-  state.weather = ensureCity().setWeather(all[(all.indexOf(state.weather) + 1) % all.length]);
-  updateCityBar();
-};
-window.addEventListener('keydown', (e) => {
-  if (state.view !== 'city' || !city) return;
-  if (e.code === 'KeyV') { state.cityView = city.setViewMode(); updateCityBar(); }
-  // < and > turn the iso view (E is the action key)
-  if (city.viewMode === 'iso' && e.code === 'Comma') city.rotateIso(-1);
-  if (city.viewMode === 'iso' && e.code === 'Period') city.rotateIso(1);
-});
-
-// ---------------------------------------------------------------------------
-// Views and the app bar
-// ---------------------------------------------------------------------------
-const MODE = { catalog: 'catalog', item: 'catalog', creator: 'characters', city: 'city', catlab: 'catlab' };
-let catLab = null; // the Cat lab (ui/catLab.js), made the first time you open it
-/** Dev tools (the Walk lab button): on with #dev in the address, or __cc.devTools(true). */
-function devTools() {
-  try { return location.hash === '#dev' || localStorage.getItem('tinycity.dev') === '1'; } catch { return location.hash === '#dev'; }
-}
 function setView(view) {
-  // the palette picker lives outside the City (owner: keep the City's top bar clean)
-  paletteBtn.hidden = view === 'city';
-  if (view === 'city') palettePanel.hidden = true;
   state.view = view;
-  const mode = MODE[view];
-  document.querySelectorAll('#modes [data-mode]').forEach((b) => b.classList.toggle('on', b.dataset.mode === mode));
   catalogEl.hidden = view !== 'catalog';
   itemEl.hidden = view !== 'item';
-  creator.show(view === 'creator');
-  document.querySelectorAll('.city-only').forEach((b) => { b.hidden = view !== 'city'; });
-  if (view !== 'city') document.querySelector('#walkLab').hidden = true;
-  if (!devTools()) document.querySelectorAll('.dev-only').forEach((b) => { b.hidden = true; }); // dev tools stay out of players' way
-  cityInput.active = view === 'city';
-  joystick.hidden = !(view === 'city' && (matchMedia('(pointer: coarse)').matches || window.innerWidth < 900));
-  overlay.hidden = view !== 'city';
-  document.querySelector('#cityActions').hidden = !SHOW_PAD || view !== 'city';
-  padBtn.hidden = !SHOW_PAD || view !== 'city';
-  updateRotateHint();
-  controls.enabled = view === 'item' || view === 'creator';
+  controls.enabled = view === 'item';
   if (view === 'catalog') { hint.textContent = 'Tap an item to turn it around and see its settings'; renderCatalog(); }
-  if (view === 'item' || view === 'creator') { hint.textContent = 'Drag to turn · scroll or pinch to zoom'; reframe = true; }
-  if (view === 'city') { ensureCity(); updateCityBar(); }
-  document.querySelector('#catLab').hidden = view !== 'catlab';
-  if (view === 'catlab') {
-    catLab ??= new CatLab({ style, renderer, el: document.querySelector('#catLab') });
-    catLab.applyLighting(lightingPresets[state.lighting]);
-    hint.textContent = 'Every cat so far, and cute proposals on the same rig';
-  }
-  // snow lies on shared materials: show it only in the city
-  if (city) setSnowCover(city.scene, view === 'city' && state.weather === 'Snow');
+  if (view === 'item') { hint.textContent = 'Drag to turn · scroll or pinch to zoom'; reframe = true; }
 }
-document.querySelector('#modes').onclick = (e) => {
-  const m = e.target.closest('[data-mode]')?.dataset.mode;
-  if (m) setView({ catalog: 'catalog', characters: 'creator', city: 'city', catlab: 'catlab' }[m]);
-};
 window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && state.view === 'item') setView('catalog'); });
 
-// ---------------------------------------------------------------------------
-// City overlay: floating speech, comic bursts and the pie menu (interact.js),
-// drawn as page elements so the text stays sharp over the low-res picture
-// ---------------------------------------------------------------------------
-const overlay = document.querySelector('#overlay');
-const pie = document.querySelector('#pie');
-pie.addEventListener('click', (e) => {
-  const b = e.target.closest('[data-n]');
-  if (b) cityInput.events.push({ type: 'choose', n: Number(b.dataset.n) });
-});
-// colour palettes (styles/palette.js PALETTES): 🎨 opens a list with a strip of
-// each palette's colours; choosing one reloads the page in those colours
 const paletteBtn = document.querySelector('#paletteBtn'), palettePanel = document.querySelector('#palettePanel');
 const STRIP = ['Sky', 'Sage', 'Moss', 'Butter', 'Apricot', 'Dusty rose', 'Powder blue', 'Lilac', 'Brick', 'Tan', 'Paper', 'Charcoal'];
 paletteBtn.innerHTML = `🎨<span> ${activePalette()}</span>`;
@@ -340,109 +282,22 @@ palettePanel.addEventListener('click', (e) => {
   if (!b) return;
   if (b.dataset.palette === activePalette()) { palettePanel.hidden = true; return; }
   choosePalette(b.dataset.palette);
-  try { sessionStorage.setItem('tinycity.back', JSON.stringify({ view: state.view, citySeed: state.citySeed, lighting: state.lighting, weather: state.weather })); } catch { /* fine */ }
+  try {
+    sessionStorage.setItem('tinycity.back', JSON.stringify({
+      catTab,
+      item: selected && state.view === 'item' ? { id: selected.id, params: selected.params } : null,
+    }));
+  } catch { /* fine */ }
   location.reload();
 });
-// the action buttons (ui/actionPad.js): every interaction has one; four layouts
-// Off for now (owner: "remove all buttons for now"): the code stays, turn it back on here.
-const SHOW_PAD = false;
-const actionPad = new ActionPad(document.querySelector('#cityActions'), cityInput);
-const padBtn = document.querySelector('#padBtn');
-const showPadName = () => { padBtn.innerHTML = `🎮<span> Buttons: ${actionPad.layout}</span>`; };
-showPadName();
-padBtn.onclick = () => { actionPad.setLayout(PAD_LAYOUTS[(PAD_LAYOUTS.indexOf(actionPad.layout) + 1) % PAD_LAYOUTS.length]); showPadName(); toast(`Buttons: ${actionPad.layout}`); };
-const safeProbe = Object.assign(document.createElement('div'), { style: 'position:fixed;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)' });
-document.body.appendChild(safeProbe);
-function screenOf(v, camera, W, H) {
-  const s = v.clone().project(camera);
-  return { x: (s.x + 1) / 2 * W, y: (1 - s.y) / 2 * H, ok: s.z < 1 && Math.abs(s.x) < 1.3 && Math.abs(s.y) < 1.3 };
-}
-/**
- * The interaction UI is painted as real pixels at the picture's pixel size
- * (ui/pixelOverlay.js): floating speech, hit bursts, the slap charge, the
- * action menu and the corner buttons (owner's pick C, "ghost plates"). The
- * page's own buttons stay on top as invisible tap areas (bigger than what you
- * see, for fingers). state.ui.hud = 'clean' shows plain rounded page
- * buttons instead (setUiStyle), for a game that wants that.
- */
-const pixelUi = new PixelOverlay(overlay);
-const MENU_LABELS = ['SLAP', 'PUSH', 'TALK', 'FART'];
-const pieBtns = [...pie.querySelectorAll('button')];
-let menuHover = -1;
-pieBtns.forEach((b, i) => {
-  b.addEventListener('pointerenter', () => { menuHover = i; });
-  b.addEventListener('pointerleave', () => { if (menuHover === i) menuHover = -1; });
-});
-function setUiStyle({ hud = state.ui.hud } = {}) {
-  state.ui = { ...state.ui, hud };
-  document.body.dataset.hud = hud;
-}
-function chargeInfo(c, ix, cam, W, H) {
-  const ch = ix.charge;
-  if (!ch) return null;
-  const [c1, c2] = CHARGE;
-  const second = ch.t >= c1;
-  const f = second ? Math.min(1, (ch.t - c1) / c2) : ch.t / c1;
-  const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
-  const col = second ? mix([255, 210, 63], [232, 64, 47], f) : mix([90, 200, 110], [255, 210, 63], f);
-  // a small dial over the head of whoever is about to get it
-  const over = ch.ref?.root ? ix.headOf(ch.ref)().add(new THREE.Vector3(0, 0.45, 0)) : c.player.root.position.clone().add(new THREE.Vector3(0, (c.player.height ?? 1.7) + 0.7, 0));
-  // the second round: the dial keeps growing and trembles more and more; full red is the climax (big shake)
-  const grow = second ? Math.min(1, (ch.t - c1) / c2) : 0;
-  return { f, col: `rgb(${col})`, grow, shake: ch.t >= c1 + c2, s: screenOf(over, cam, W, H) };
-}
-function drawPixelOverlay(c, W, H) {
-  const ix = c.ix, cam = c.activeCamera, px = 2 /* the UI's own pixel size: speech stays readable when the picture gets finer pixels on a phone */, pixelHud = state.ui.hud === 'pixel';
-  const speech = [], bursts = [];
-  for (const b of ix.bubbles) {
-    if (b.age < 0) continue;
-    const at = b.anchor();
-    const s = screenOf(at, cam, W, H);
-    if (!s.ok) continue;
-    s.dist = Math.hypot(at.x - c.player.x, at.z - c.player.z); // speech fades with distance from you
-    (b.kind === 'talk' || b.kind === 'shout' ? speech : bursts).push({ b, s });
-  }
-  // the action menu: a row of plates over their head; the page's buttons sit on them as tap areas
-  let menu = null;
-  const head = ix.menu ? screenOf(ix.headOf(ix.menu.npc)(), cam, W, H) : null;
-  pie.hidden = !head;
-  if (head) {
-    const pw = 42, ph = 14, gap = 3, total = 4 * pw + 3 * gap;
-    const x0 = Math.round(Math.max(2, Math.min(W / px - total - 2, head.x / px - total / 2))), y0 = Math.round(head.y / px - ph - 4);
-    const rects = MENU_LABELS.map((_, i) => ({ x: x0 + i * (pw + gap), y: y0, w: pw, h: ph }));
-    pie.style.left = '0px'; pie.style.top = '0px';
-    rects.forEach((r, i) => Object.assign(pieBtns[i].style, { left: `${r.x * px}px`, top: `${(r.y - 3) * px}px`, width: `${r.w * px}px`, height: `${(r.h + 6) * px}px`, margin: '0' }));
-    if (pixelHud) menu = { rects, labels: MENU_LABELS, hover: menuHover, box: { x0: x0 - 2, x1: x0 + total + 2, y0: y0 - 2, y1: y0 + ph + 12 } };
-  }
-  // the action buttons: laid out for this screen; tiles drawn exactly on their tap areas
-  const riding = !!c.player.riding;
-  const touch = matchMedia('(pointer: coarse)').matches || W < 900;
-  const cs = getComputedStyle(safeProbe), safe = { l: parseFloat(cs.paddingLeft) || 0, r: parseFloat(cs.paddingRight) || 0, b: parseFloat(cs.paddingBottom) || 0 };
-  if (SHOW_PAD) actionPad.place(W, H, { touch, riding, safe, joy: joystick.hidden ? null : joystick.getBoundingClientRect() });
-  c.padOn = SHOW_PAD;
-  const pad = pixelHud && SHOW_PAD ? actionPad.tiles({ riding, target: ix.padTarget }).map((t) => {
-    const x = Math.round(t.x / px), y = Math.round(t.y / px);
-    return { ...t, x, y, s: Math.round((t.x + t.s) / px) - x };
-  }) : null;
-  // the walk joystick (touch screens), drawn at the page joystick's place
-  let stick = null;
-  if (pixelHud && !joystick.hidden) {
-    const r = joystick.getBoundingClientRect(), k = joystick.querySelector('.knob').getBoundingClientRect();
-    stick = { cx: Math.round((r.left + r.width / 2) / px), cy: Math.round((r.top + r.height / 2) / px), r: Math.round(r.width / 2 / px), kx: Math.round((k.left + k.width / 2) / px), ky: Math.round((k.top + k.height / 2) / px), kr: Math.round(k.width / 2 / px), active: cityInput.move.x !== 0 || cityInput.move.z !== 0 };
-  }
-  pixelUi.draw({ W, H, px, speech, bursts, charge: chargeInfo(c, ix, cam, W, H), menu, pad, showKeys: !touch, stick });
-  const sh = ix.shake ?? 0;
-  canvas.style.transform = sh > 0 ? `translate(${(Math.random() - 0.5) * 14 * sh / 0.3}px, ${(Math.random() - 0.5) * 10 * sh / 0.3}px)` : '';
-}
-function drawOverlay(c, W, H) { drawPixelOverlay(c, W, H); }
 
 // ---------------------------------------------------------------------------
 // Render loop
 // ---------------------------------------------------------------------------
 const timer = new THREE.Timer();
-const gait = createGait(); // walk / run preview for the character creator
+const gait = createGait();
 const catGait = createCatGait();
-let propTime = 0; // nobori sway and bird idles (anim/props.js)
+let propTime = 0;
 function resize() {
   const w = canvas.clientWidth, h = canvas.clientHeight, pr = renderer.getPixelRatio();
   if (canvas.width !== Math.floor(w * pr) || canvas.height !== Math.floor(h * pr)) renderer.setSize(w, h, false);
@@ -475,91 +330,38 @@ function loop(time) {
   if (state.view === 'item' && itemCell) {
     propTime += dt;
     tickProps(itemCell.scene, propTime);
-    if (CATALOG[selected.id].animated === 'cat') {
-      // walk / run in place: the cat's gait (anim/catGait.js)
+    const asset = CATALOG[selected.id];
+    if (asset.animated === 'cat') {
       catGait.pose = { Sit: 'sit', Loaf: 'loaf', Sleep: 'sleep' }[state.itemAnim] ?? null;
       stepCatGait(catGait, dt, { Walk: CAT_WALK_SPEED, Run: CAT_RUN_SPEED }[state.itemAnim] ?? 0);
       itemCell.scene.traverse((o) => { if (o.name === 'cat') poseCat(o, catGait); });
     }
+    if (asset.animated === 'human') {
+      const look = asset.resolve(selected.params);
+      setGaitEngine(look.animation);
+      const tune = tuneOf(look);
+      const mode = HUMAN_ANIMS.includes(state.itemAnim) ? state.itemAnim : 'Walk';
+      stepGait(gait, dt, mode === 'Run' ? RUN_SPEED : mode === 'Walk' ? WALK_SPEED : 0, tune);
+      itemCell.scene.traverse((o) => { if (o.name === 'human') poseGait(o, gait, 'natural', tune); });
+    }
     preview(itemCell, panelRect(itemEl, W, H), H);
-  }
-  else if (state.view === 'creator') {
-    const tune = tuneOf(params.human); // the walk and run chosen in the creator
-    stepGait(gait, dt, state.anim === 'Run' ? RUN_SPEED : state.anim === 'Walk' ? WALK_SPEED : 0, tune);
-    if (gait.lock != null) gait.phase = gait.lock * Math.PI * 2; // debug: freeze at a cycle fraction
-    for (const p of humanCell.pivots) { const o = p.children[0]; if (o?.name === 'human') poseGait(o, gait, 'natural', tune); }
-    preview(humanCell, creator.previewRect(W, H), H);
-  } else if (state.view === 'catlab' && catLab) {
-    try { catLab.render(ps1, dt, W, H); } catch (err) { if (!loop.warnedCat) { loop.warnedCat = true; console.error('cat lab', err); } }
-  } else if (state.view === 'city' && city) {
-    // an error in one update must never stop the picture (the city would go black)
-    if (city.playerTune === undefined) walkLab.apply();
-    try { city.update(dt, walkLab.input(cityInput, city, dt)); } catch (err) { if (!loop.warned) { loop.warned = true; console.error('city update', err); } }
-    city.setAspect(W / H);
-    ps1.render(city, city.activeCamera, 0, 0, W, H);
-    drawOverlay(city, W, H);
   }
   requestAnimationFrame(loop);
 }
 
-// back where you were after a palette change (the page reloads to rebuild everything)
 let back = null;
 try { back = JSON.parse(sessionStorage.getItem('tinycity.back') ?? 'null'); sessionStorage.removeItem('tinycity.back'); } catch { /* fine */ }
-if (back) Object.assign(state, { citySeed: back.citySeed ?? state.citySeed, lighting: back.lighting ?? state.lighting, weather: back.weather ?? state.weather });
-setView(back?.view && back.view !== 'item' ? back.view : 'catalog');
+if (back?.catTab) catTab = back.catTab;
+setView('catalog');
+if (back?.item?.id && CATALOG[back.item.id]) openItem(back.item.id, back.item.params);
 requestAnimationFrame(loop);
 
-// Debug hooks for agents and tests (see SKILLS.md, "Testing and checking")
 Object.assign(window, {
   __cc: {
-    params, state, setView, openItem, CATALOG, human, getCity: () => ensureCity(), cityInput, gait, tuneOf,
-    /** Set character settings (rules applied). */
-    apply: (id, values) => { Object.assign(params[id], values); humanChanged(); reframe = true; },
-    /**
-     * Preview a comic hit variation (comedy.js) beside the player: kind
-     * 'slap' | 'push' | 'fall', n 0-2, shown at time t; null clears it.
-     */
-    COMEDY,
-    /** Show or hide the dev tools (the Walk lab button in the City); remembered in this browser. */
-    devTools: (on = true) => { try { localStorage.setItem('tinycity.dev', on ? '1' : '0'); } catch { /* fine */ } setView(state.view); },
-    /** Style the interaction UI: { world: 'pixel' | 'html', hud: 'pixel' | 'clean' }. */
-    setUiStyle,
-    comedy: (kind, n = 0, t = 0) => {
-      const c = ensureCity();
-      if (!kind) { c.comedyStage?.dispose(); c.comedyStage = null; return null; }
-      if (!c.comedyStage) {
-        const p = c.player;
-        c.comedyStage = new ComedyStage(c, (v) => c.buildPerson(v ? { ...params.human, ...human.randomize(Math.random) } : params.human), p.x + 1.5, p.z, 0);
-      }
-      c.comedyStage.play(kind, n);
-      return c.comedyStage.at(t);
-    },
-    newTown: (seed) => { state.citySeed = seed; city = null; return ensureCity(); },
+    state, setView, openItem, CATALOG, ASSETS, human, createAsset, gait, tuneOf,
+    resolve: (id, params) => CATALOG[id]?.resolve?.(params ?? {}),
     /** Orbit the preview camera by `az` radians. */
     orbit: (az) => { const t = controls.target; camera.position.sub(t).applyAxisAngle(new THREE.Vector3(0, 1, 0), az).add(t); controls.update(); },
+    get itemCell() { return itemCell; },
   },
 });
-
-setUiStyle(); // pixel world layer and pixel controls by default (owner's pick)
-
-// Phones held upright in the City: ask to turn sideways. Where the browser
-// allows it (fullscreen + orientation lock, mostly Android), "Go landscape"
-// locks it; iPhones cannot be rotated by a web page, so the card asks.
-function updateRotateHint() { // (a function declaration: setView calls it during start-up)
-  const el = document.querySelector('#rotateHint');
-  const phone = matchMedia('(pointer: coarse)').matches;
-  const upright = matchMedia('(orientation: portrait)').matches;
-  el.hidden = !(state.view === 'city' && phone && upright && el.dataset.skipped !== '1');
-}
-document.querySelector('#rotateGo').onclick = async () => {
-  try { await document.documentElement.requestFullscreen?.(); await screen.orientation?.lock?.('landscape'); } catch { /* not allowed here: the card stays until you turn the phone */ }
-  updateRotateHint();
-};
-document.querySelector('#rotateSkip').onclick = () => { document.querySelector('#rotateHint').dataset.skipped = '1'; updateRotateHint(); };
-matchMedia('(orientation: portrait)').addEventListener?.('change', updateRotateHint);
-window.addEventListener('resize', updateRotateHint);
-updateRotateHint();
-
-// the Walk lab panel (ui/walkLab.js): tune how the main character walks and runs
-const walkLab = new WalkLab({ panel: document.querySelector('#walkLab'), button: document.querySelector('#walkLabBtn'), getCity: () => city });
-
