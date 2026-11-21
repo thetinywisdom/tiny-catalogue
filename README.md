@@ -9,6 +9,10 @@ around, change its settings, and copy the `createAsset(...)` line.
 People are faceless, the same as the cats. There is no town to walk and no
 separate character creator. The app opens on the catalogue.
 
+**PS1**, next to Colours, turns the chunky look off: a smooth full-resolution
+picture, more geometry, no dither or outlines. Colours stay the same. The
+choice is remembered in this browser. On is the PS1 look.
+
 ## Run
 
 ```bash
@@ -46,6 +50,7 @@ the same thing. For a person, settings you change after that stay until the
 next New look, and the copied line includes every setting and the seed. An
 area works the same way: the seed is the layout, and Density, People and
 Cats stay put until you change them.
+`style.setPs1(false)` is the smooth render; the catalogue's PS1 button calls it.
 
 ## Docs
 

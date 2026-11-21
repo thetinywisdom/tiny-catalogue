@@ -48,11 +48,12 @@ html, body {
 #hud .spacer { flex: 1; pointer-events: none; }
 #hint { color: var(--muted); font-size: 12px; background: var(--panel); border-radius: 6px; padding: 4px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 1 auto; }
 #hint:empty { display: none; }
-#paletteBtn {
+#ps1Btn, #paletteBtn {
   background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px;
   font: inherit; min-height: 40px; padding: 6px 12px; cursor: pointer;
 }
-#paletteBtn:hover { border-color: var(--accent); }
+#ps1Btn.on { background: var(--accent); color: #1d1d1d; border-color: var(--accent); font-weight: 600; }
+#ps1Btn:hover, #paletteBtn:hover { border-color: var(--accent); }
 
 #toast {
   position: fixed;
@@ -71,6 +72,7 @@ html, body {
   #hud { gap: 8px; padding: 0 8px; }
   #hud .title { padding: 4px 8px; font-size: 13px; }
   #paletteBtn span { display: none; }
+  #ps1Btn, #paletteBtn { padding: 6px 10px; }
 }
 
 /* --- catalogue ------------------------------------------------------------- */
@@ -89,6 +91,7 @@ html, body {
 }
 .cat-card:hover { border-color: var(--accent); }
 .cat-card img { width: 100%; aspect-ratio: 1; object-fit: contain; image-rendering: pixelated; background: #2c2f35; border-radius: 6px; }
+body[data-look="clean"] .cat-card img { image-rendering: auto; }
 .cat-card b { font-weight: 600; padding: 2px 2px 0; }
 .cat-card code { color: var(--muted); font-size: 11px; padding: 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 500px) { .cat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
