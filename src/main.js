@@ -56,6 +56,22 @@ const TABS = [
   ['animals', 'Animals'],
   ['people', 'People'],
   ['vehicles', 'Vehicles'],
+  ['office', 'Office'],
+  ['diner', 'Diner'],
+  ['clinic', 'Clinic'],
+  ['police', 'Police'],
+  ['minimarket', 'Minimarket'],
+  ['meeting', 'Meeting'],
+  ['bedroom', 'Bedroom'],
+  ['studio', 'Studio'],
+  ['cafe', 'Cafe'],
+  ['classroom', 'Classroom'],
+  ['openoffice', 'Open office'],
+  ['ramen', 'Ramen'],
+  ['kitchen', 'Kitchen'],
+  ['library', 'Library'],
+  ['dojo', 'Dojo'],
+  ['station', 'Station'],
   ['areas', 'Areas'],
 ];
 const catalogEl = document.querySelector('#catalog');
@@ -82,6 +98,11 @@ const SWATCH = {
   shoeColor: CLOTH_COLORS,
 };
 const OPTION_LABELS = { pattern: 'Pattern', tailType: 'Tail', earType: 'Ears', coat: 'Coat' };
+// Furnished rooms keep a number, so seed 0 (the hand-made layout) stays reachable.
+// Other seeded props keep 🎲 New look. Randomize skips 0.
+function usesRoomSeed(a) {
+  return !!(a.seedInput || a.seedControl || (a.id.endsWith('.room') && 'seed' in (a.params ?? {})));
+}
 
 function renderCatalog() {
   const tabs = catalogEl.querySelector('.cat-tabs');
@@ -203,12 +224,18 @@ function renderItemPanel() {
       ${anims ? `<h3>Animation</h3><div class="chips">${anims.map((m) => `<button type="button" data-anim="${m}" class="${animNow === m ? 'on' : ''}">${m}</button>`).join('')}</div>` : ''}
       ${a.kind === 'human'
         ? `<h3>Look</h3><div class="chips"><button type="button" data-act="seed">🎲 New look</button></div><p class="it-note">Seed ${look.seed}. This tile's body type stays. The same seed rebuilds the same person. A setting you change stays until the next New look.</p>`
-        : ('seed' in (a.params ?? {}) ? '<h3>Look</h3><div class="chips"><button type="button" data-act="seed">🎲 New look</button></div>' : '')}
+        : usesRoomSeed(a)
+          ? `<h3>Layout seed</h3><div class="seed-row"><input data-act="seed-num" type="number" step="1" value="${Number.isFinite(Number(p.seed)) ? Math.trunc(Number(p.seed)) : 0}" aria-label="Layout seed"><button type="button" data-act="seed-random">Randomize</button></div><p class="it-note">0 is the hand-made layout. The same number rebuilds the same room.</p>`
+          : ('seed' in (a.params ?? {}) ? '<h3>Look</h3><div class="chips"><button type="button" data-act="seed">🎲 New look</button></div>' : '')}
       <h3>Use it in a game</h3>
       <pre></pre>
       <button type="button" data-act="copy">Copy</button>
     </div>`;
   itemEl.querySelector('pre').textContent = code;
+  itemEl.onmousedown = (e) => {
+    // Keep a seed number from blurring (and rebuilding) before Randomize runs.
+    if (e.target.closest('[data-act="seed-random"]')) e.preventDefault();
+  };
   itemEl.oninput = (e) => {
     const r = e.target;
     if (r.dataset.act !== 'slider') return;
@@ -222,6 +249,10 @@ function renderItemPanel() {
   };
   itemEl.onchange = (e) => {
     if (e.target.dataset.act === 'slider') reframe = true;
+    if (e.target.dataset.act !== 'seed-num') return;
+    const n = Math.trunc(Number(e.target.value));
+    selected.params.seed = Number.isFinite(n) ? n : 0;
+    openItem(selected.id, selected.params);
   };
   itemEl.onclick = (e) => {
     const b = e.target.closest('button');
@@ -236,6 +267,10 @@ function renderItemPanel() {
       const next = 1 + Math.floor(Math.random() * 1e9);
       if (a.kind === 'human') selected.params = { seed: next };
       else selected.params.seed = next;
+      return openItem(selected.id, selected.params);
+    }
+    if (b.dataset.act === 'seed-random') {
+      selected.params.seed = 1 + Math.floor(Math.random() * 1e9);
       return openItem(selected.id, selected.params);
     }
     if (b.dataset.k) {

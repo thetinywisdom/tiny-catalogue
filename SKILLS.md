@@ -7,8 +7,9 @@ the app (see the end).
 ## What this is
 
 A catalogue of low-poly PS1 pieces: buildings, street props, vehicles,
-foliage, animals and people. The app (`npm run dev`) opens on that list.
-There is no town to walk, no character-creator screen, and no interior rooms.
+foliage, animals, people, and furnished rooms (office, diner, clinic, and
+the rest). The app (`npm run dev`) opens on that list. There is no town to
+walk, no character-creator screen, and no separate interiors app.
 
 A game copies the modules it needs. `createAsset(id, params, style)` builds
 any item. The id is on the card. The item panel's copied line is a working
@@ -35,8 +36,15 @@ you need that. It is not the publish path.
 index.html, src/main.js     the catalogue UI: tabs, item panel, palette, render loop
 src/catalog/index.js        ASSETS, CATALOG, createAsset
 src/catalog/humans.js       People tiles and resolveHuman (seed + explicit edits)
-src/catalog/areas.js        six seeded dioramas (Areas tab)
+src/catalog/areas.js        six 32 m blocks (Areas tab)
 src/catalog/thumbs.js       card pictures, cached in the browser
+src/office, src/diner, src/clinic, src/police, src/minimarket,
+src/meeting, src/bedroom, src/studio, src/cafe, src/classroom,
+src/openoffice, src/ramen, src/kitchen, src/library, src/dojo, src/station
+                            furnished-room builders (catalogue tabs)
+public/<kit>-kit/           manifest.json and layout.json each room reads
+src/lib/roomLayout.js, roomPlan.js, roomSeed.js
+                            shared seeded-layout checks
 src/render/ps1.js           low-res render, dither, outlines
 src/styles/                 ps1.js materials, palette.js, lighting presets
 src/city/                   building builders the catalogue uses (not a town):
@@ -134,6 +142,27 @@ Faces: the human builder has no eyes, mouth, nose or brows. Do not add them.
 Beards, glasses and masks are accessories and stay. Cats in the catalogue are
 built with `face: 'None'`. Do not add a face control.
 
+## Furnished rooms
+
+Sixteen catalogue tabs, ported from Tiny City Builder. Each tab is one
+furnished room (`office.room`, `diner.room`, `clinic.room`, `police.room`,
+`minimarket.room`, `meeting.room`, `bedroom.room`, `studio.room`,
+`cafe.room`, `classroom.room`, `openoffice.room`, `ramen.room`,
+`kitchen.room`, `library.room`, `dojo.room`, `station.room`) and then every
+piece in that room (`office.desk`, and the rest). There is no interiors
+app: the same catalogue panel edits them.
+
+`variant` is `Cutaway` or `Full`. `seed` 0 is the hand-made layout. Any
+other integer rebuilds the same arrangement. The item panel shows that
+number plus Randomize (it skips 0). Other seeded props keep 🎲 New look.
+`station.room` sets `fillFrame` so the long platform fills the card and
+the item view. Colours go through `style.material`, so the PS1 toggle
+(snap on or off, low-res or full resolution) applies the same way it does
+to a bench. Piece geometry keeps the kit's own segment counts.
+
+`node scripts/check-room-seeds.mjs` and `node scripts/check-diner-layout.mjs`
+check the seeded layouts.
+
 ## Add something
 
 **A building.** Write `myBuilding(style, rng, w, d)` in `shops.js`, `civic.js`
@@ -168,8 +197,10 @@ No unit test suite. Before committing:
   console errors. Every tab opens. A person opens in `#item`. Changing a
   setting and pressing New look both change the mesh. The same seed resolves
   to the same parameters twice. An area opens too: New look changes the
-  layout, and the same seed puts things back in the same places. Phone width
-  390×844 still scrolls the panel.
+  layout, and the same seed puts things back in the same places. A furnished
+  room opens: seed 0 is the hand-made layout, another seed rearranges it,
+  and the PS1 button still draws that room. Phone width 390×844 still
+  scrolls the panel.
 - `window.__cc`: `state`, `setView('catalog'|'item')`, `openItem(id, params)`,
   `CATALOG`, `ASSETS`, `resolve(id, params)`, `createAsset`, `orbit(az)`,
   `human`, `itemCell`, `setPs1(on)` (PS1 look, no reload).
