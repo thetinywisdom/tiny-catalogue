@@ -122,9 +122,17 @@ export const hydrant = {
     // The pole (radius 0.025 at z = 0) reaches z = 0.025. The plate's front
     // sits just past that, so the pole stays behind the lettering.
     const plateZ = 0.022;
+    // disc() would run this 14 through the PS1 detail multiplier and turn
+    // the sign into a hexagon. Keep the original 14 sides, and cut the
+    // decal from the same count so the two rims are the same polygon.
     const sides = 14;
-    g.add(disc(R, plateT, red, [0.35, 2.05, plateZ], sides));
-    const tex = signTexture({ lines: ['消火栓'], bg: '#d8302a', fg: '#ffffff', shape: 'circle', w: 64, h: 64 });
+    const plate = new THREE.Mesh(new THREE.CylinderGeometry(R, R, plateT, sides), red);
+    plate.rotation.x = Math.PI / 2;
+    plate.position.set(0.35, 2.05, plateZ);
+    g.add(plate);
+    const tex = signTexture({
+      lines: ['消火栓'], bg: '#d8302a', fg: '#ffffff', shape: 'circle', w: 64, h: 64, radiusMargin: 0.12,
+    });
     const signMat = style.material('signage', 0xffffff, tex);
     // Canvas corners outside the circle are transparent and would draw black
     // on an opaque material. Drop them. The decal is coplanar with the cap,
@@ -133,10 +141,9 @@ export const hydrant = {
     signMat.polygonOffset = true;
     signMat.polygonOffsetFactor = -2;
     signMat.polygonOffsetUnits = -4;
-    // Same radius and the same rim angles as the disc's front cap
-    // (cylinder theta 0 lands at the bottom after the disc's X turn).
+    // Cylinder theta 0 lands at the bottom after the plate's X turn.
     // Circle UVs run +x / +y, so 消火栓 stays upright and is not mirrored.
-    const decal = new THREE.Mesh(new THREE.CircleGeometry(R, seg(sides, 6), -Math.PI / 2), signMat);
+    const decal = new THREE.Mesh(new THREE.CircleGeometry(R, sides, -Math.PI / 2), signMat);
     decal.position.set(0.35, 2.05, plateZ + plateT / 2);
     g.add(decal);
     return g;

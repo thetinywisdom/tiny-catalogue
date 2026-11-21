@@ -331,7 +331,10 @@ About one in six random characters is a child.
 ## 3e. Street props (Japan)
 
 - The city is **Japanese**: red post boxes, red hydrants with a round 消火栓
-  sign (the lettering sits on the disc and nothing draws outside the rim),
+  sign. The plate is the original 14-sided disc (the PS1 detail cut would
+  turn it into a hexagon, so this one disc keeps every side). The lettering
+  sits on that disc, inside the rim by about a tenth of the radius, and
+  nothing draws outside the circle.
   horizontal traffic lights, inverted-triangle 止まれ stop signs, drink vending
   machines, recycling stations, white guard rails, concrete utility poles with
   overhead wires, kei cars and taxis with a roof lamp, city bikes with baskets.
