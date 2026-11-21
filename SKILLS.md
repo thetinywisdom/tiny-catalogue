@@ -37,13 +37,16 @@ index.html, src/main.js     the catalogue UI: groups, search, item panel, palett
 src/catalog/browse.js       groups, tags, search text, favourites, the URL hash
 src/catalog/index.js        ASSETS, CATALOG, createAsset
 src/catalog/humans.js       People tiles and resolveHuman (seed + explicit edits)
-src/catalog/areas.js        six 32 m blocks (Areas tab)
+src/catalog/areas.js        six 32 m blocks (Areas tab), layBlock, placeAreaCrowd
+src/catalog/blocks.js       saved-block JSON and buildUserBlock
+src/catalog/blockMaker.js   Blocks tab: edit one block in the catalogue panel
 src/catalog/thumbs.js       card pictures, cached in the browser
 src/office, src/diner, src/clinic, src/police, src/minimarket,
 src/meeting, src/bedroom, src/studio, src/cafe, src/classroom,
 src/openoffice, src/ramen, src/kitchen, src/library, src/dojo, src/station
                             furnished-room builders (catalogue tabs)
 public/<kit>-kit/           manifest.json and layout.json each room reads
+src/lib/ground.js           stacked floors: GAP, topped slabs, decals, no self-shadow
 src/lib/roomLayout.js, roomPlan.js, roomSeed.js
                             shared seeded-layout checks
 src/render/ps1.js           low-res render, dither, outlines
@@ -130,6 +133,27 @@ is `{ id, footprint, edges }` with `edges.n/e/s/w` of `street` (3 m) or
 `sidewalk` (1.5 m). +z is north. `createAreaBlock(id, params, style)` builds
 one. See README for laying them on a grid.
 
+The shell, the edge strips and anything laid on them do not share a volume.
+Street tops stay at 4 cm and sidewalk tops at 6 cm, so neighbouring blocks
+still meet. A road, path or paving on the interior sits 1.2 cm above the
+shell (`GAP` in `src/lib/ground.js`). Flat ground does not cast a shadow.
+`node scripts/check-ground.mjs` builds the areas and fails if two ground
+slabs overlap.
+
+## Blocks
+
+The Blocks tab (`src/catalog/blockMaker.js`) edits one 32 × 32 m block in
+the same panel and the same PS1 view. Edges are street or sidewalk. Ground
+is asphalt, paving, grass or gravel. A dropdown drops buildings, props,
+foliage and vehicles; a click on the block places them on a 0.5 m grid.
+Move, Rotate 90° and a free-rotate slider edit the selection. People and
+Cats are counts. They are placed with `placeAreaCrowd` (the same spacing
+the areas use) and stay faceless.
+
+🎲 fills the block from one of the six area generators (`blockFromPreset`),
+then the pieces can be edited. Save writes `localStorage` (`tinycity.blocks`).
+Export and Import are the JSON `buildUserBlock` reads. See README.
+
 Nobori and birds move because `tickProps` already walks the item. People
 and cats set `userData.tick` on a carrier group, which `tickProps` calls.
 The walk pose rewrites the rig position, so the carrier is what stands on
@@ -175,8 +199,9 @@ file it.
 
 Groups: Buildings, Street & props (Street, Traffic, Extras), Nature,
 Vehicles, Characters (People, Cats, Birds), Rooms (16 kits, then Whole room,
-Furniture, Fixtures, Small items, Decor), Areas & Blocks (the Areas tab, plus
-a Block maker tab when one is in `TABS`). Palette stays a swatch grid.
+Furniture, Fixtures, Small items, Decor), Areas & Blocks. Areas is the
+diorama cards. Blocks, next to it, opens the block maker (`openBlocks`).
+That panel is not a card grid. Palette stays a swatch grid.
 
 Search (press `/`) matches the friendly name, the id and the tags, across
 every group. Chips narrow that: Indoor or Outdoor, Small / Medium / Large
@@ -237,7 +262,9 @@ No unit test suite. Before committing:
   scrolls the panel and the group row.
 - `window.__cc`: `state`, `setView('catalog'|'item')`, `openItem(id, params)`,
   `CATALOG`, `ASSETS`, `resolve(id, params)`, `createAsset`, `orbit(az)`,
-  `human`, `itemCell`, `setPs1(on)` (PS1 look, no reload).
+  `pose()`, `look(position, target)` (place the preview camera),
+  `human`, `itemCell`, `setPs1(on)` (PS1 look, no reload), `openBlocks`,
+  `buildUserBlock`, `blockDraft`.
 
 Check desktop (1280×720) and phone (390×844).
 

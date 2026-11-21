@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { markGround } from '../lib/ground.js';
 import { signTexture } from '../lib/textures.js';
 import { box, cyl, face } from '../props/util.js';
 import { FLOOR, WALLS, gable, windowRow } from './buildings.js';
@@ -108,7 +109,8 @@ export function laundromat(style, rng, w, d) {
   g.add(box(bw, 0.3, room, wallM, [0, G - 0.15, front - room / 2]));            // ceiling
   for (const sx of [-1, 1]) g.add(box(0.2, G, room, wallM, [sx * (bw / 2 - 0.1), G / 2, front - room / 2]));
   if (floors) g.add(box(bw, H - G, bd, wallM, [0, G + (H - G) / 2, bz]));
-  g.add(box(bw - 0.4, 0.04, room, style.material('concrete', 0xd8dde2), [0, 0.02, front - room / 2]));
+  // Top at 6 cm, above a block interior (4 cm), so the open floor does not share that plane.
+  g.add(markGround(box(bw - 0.4, 0.02, room, style.material('concrete', 0xd8dde2), [0, 0.05, front - room / 2])));
   // washers along the back wall; dryers stacked at one end (either end)
   const white = style.material('metal', pick(rng, [0xf4f4f0, 0xe8ecf0, 0xf0e8d8])), door = style.material('glass', 0x2c3a48);
   const n = Math.max(2, Math.floor((bw - 1.6) / 0.85));

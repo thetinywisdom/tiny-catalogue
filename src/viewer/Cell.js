@@ -5,6 +5,7 @@ import { bench, busStop, postBox, streetLamp, trashBin } from '../props/furnitur
 import { crosswalk, streetSign, trafficLight } from '../props/traffic.js';
 import { bicycle, car } from '../props/vehicles.js';
 import { planter, utilityPole, vendingMachine, wire } from '../props/extras.js';
+import { markGround } from '../lib/ground.js';
 import { tiledBox } from '../props/util.js';
 
 // A Cell is one little stage: its own scene, lights, ground and camera,
@@ -77,7 +78,10 @@ export class Cell {
       if (subject.isCharacter) obj.scale.setScalar((subject.exaggeration ?? 1) * Cell.characterScale);
       this.style.decorate?.(obj);
       obj.traverse((o) => {
-        if (o.isMesh && !o.userData.outline) { o.castShadow = true; o.receiveShadow = true; }
+        if (o.isMesh && !o.userData.outline) {
+          o.castShadow = !o.userData.ground;
+          o.receiveShadow = true;
+        }
       });
       const box = new THREE.Box3().setFromObject(obj);
       // horizontal radius: the footprint the subject sweeps while spinning
@@ -121,8 +125,9 @@ export class Cell {
     // a wide ground plane, so subjects read as standing in a world
     const ground = new THREE.Mesh(new THREE.CircleGeometry(60, 48), this.style.material('ground'));
     ground.rotation.x = -Math.PI / 2;
-    ground.position.y = this.backdrop === 'street' ? -0.16 : 0;
-    ground.receiveShadow = true;
+    // Below every slab that stands on y = 0, so the disc and a floor never share a plane.
+    ground.position.y = this.backdrop === 'street' ? -0.25 : -0.02;
+    markGround(ground);
     this.content.add(ground);
     if (this.backdrop === 'street') this.content.add(this.buildStreet(bounds));
 
@@ -143,7 +148,10 @@ export class Cell {
     const walkDepth = bounds.max.z - backZ + 1.5;
 
     const walk = tiledBox(len, 0.15, walkDepth, M('sidewalk'), [0, -0.075, backZ + walkDepth / 2]);
-    const road = tiledBox(len, 0.02, 7, M('road'), [0, -0.15, backZ + walkDepth + 3.5]);
+    // Road top is 2 cm under the sidewalk bottom (-0.15), so the curb is a real step.
+    const road = tiledBox(len, 0.04, 7, M('road'), [0, -0.19, backZ + walkDepth + 3.5]);
+    markGround(walk);
+    markGround(road);
     street.add(walk, road);
 
     // buildings: seeded so the street looks the same every time
@@ -172,7 +180,7 @@ export class Cell {
     // the subjects from the camera.
     const S = this.style;
     const put = (obj, px, pz, ry = 0, py = 0) => { obj.position.set(px, py, pz); obj.rotation.y = ry; street.add(obj); return obj; };
-    const roadTop = -0.14;
+    const roadTop = -0.17;
     const curbZ = backZ + walkDepth - 0.45;
     const wallZ = backZ + 0.55;
     const roadZ = backZ + walkDepth + 3.5;
@@ -217,7 +225,12 @@ export class Cell {
         px, roadZ - 2.2, Math.PI / 2, roadTop);
     }
 
-    street.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    street.traverse((o) => {
+      if (o.isMesh) {
+        o.castShadow = !o.userData.ground;
+        o.receiveShadow = true;
+      }
+    });
     this.style.decorate?.(street);
     setDetail(1);
     return street;
@@ -244,8 +257,11 @@ export class Cell {
     cam.top = r * 1.3; cam.bottom = -r * 1.3;
     cam.near = 0.05; cam.far = r * 8;
     cam.updateProjectionMatrix();
-    this.key.shadow.bias = -0.0004;
-    this.key.shadow.normalBias = 0.02 * r;
+    // Two shadow-map texels of normal bias. Flat ground that does not cast
+    // no longer needs a bias that grows with the whole block.
+    const texel = (r * 2.6) / this.key.shadow.mapSize.x;
+    this.key.shadow.bias = -0.00015;
+    this.key.shadow.normalBias = Math.min(0.05, Math.max(0.02, texel * 1.25));
   }
 
   setAngle(angle) {

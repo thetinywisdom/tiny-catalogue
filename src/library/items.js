@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { PALETTE } from '../styles/palette.js';
 import { mulberry32 } from '../lib/rng.js';
 import { lobe, shadeMaterial } from '../lib/foliage.js';
+import { GAP } from '../lib/ground.js';
 import { mergeByMaterial } from '../lib/merge.js';
 import manifest from '../../public/library-kit/manifest.json';
 import { libraryPlan } from './arrange.js';
@@ -282,7 +283,7 @@ export function buildLibraryRoom(style, { cutaway = false, seed = 0 } = {}) {
   const hits = [];
   const floorH = TILE_TOP - SLAB_TOP;
   addBox(body, RW, floorH, RD, mat(style, 'wood:Tan'), [0, (SLAB_TOP + TILE_TOP) / 2, 0]);
-  addBox(body, RW, 0.22, RD, mat(style, 'concrete:Gray'), [0, SLAB_TOP - 0.11, 0]);
+  addBox(body, RW, 0.22, RD, mat(style, 'concrete:Gray'), [0, SLAB_TOP - GAP - 0.11, 0]);
 
   const hole = (a0, a1, y0, h) => ({ a0: a0 + LIP, a1: a1 - LIP, y0: y0 + LIP, y1: y0 + h - LIP });
   const frontWins = [[-3.4, -3.4 + WIN.w], [-1.2, -1.2 + WIN.w]];

@@ -234,7 +234,14 @@ export function createBrowser(assets, tabList) {
   function subsFor(groupId, pool) {
     if (groupId === 'street') return withCounts(streetSubs, pool, (m) => m.sub);
     if (groupId === 'rooms') return withCounts(roomSubs, pool, (m) => m.sub);
-    if (groupId === 'places') return withCounts(placeSubs, pool, (m) => m.sub);
+    if (groupId === 'places') {
+      return placeSubs.map((sub) => {
+        const tool = blockTabs.some(([id]) => id === sub.id);
+        const count = pool.filter((m) => m.sub === sub.id).length;
+        // The Block maker is a panel, not a list of cards, so it has no count.
+        return { ...sub, count: tool ? null : count, tool };
+      });
+    }
     if (groupId === 'characters') {
       const kinds = [
         { id: 'people', label: 'People' },
@@ -356,7 +363,7 @@ export function createBrowser(assets, tabList) {
     return [{ title: '', items: list.map((m) => m.asset) }];
   }
 
-  return { groups, byId, subsFor, typesFor, normalize, pool, order, sections, placeSubs };
+  return { groups, byId, subsFor, typesFor, normalize, pool, order, sections, placeSubs, blockTabIds: new Set(blockTabs.map(([id]) => id)) };
 }
 
 function withCounts(subs, pool, pick) {

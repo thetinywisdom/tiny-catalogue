@@ -56,13 +56,22 @@ renderer. People stay faceless. Cats stay faceless.
    back on their own tabs, with the same builders, manifests, layouts and
    seeds. The City, the character creator, the cat lab, the walk lab and
    the standalone interiors previews (GLBs, the office blend) stay out.
-7. **Finding items.** Seven groups instead of one scrolling row of tabs.
+7. **Floors do not fight.** Area street edges were the same plane as the
+   block shell, so with PS1 off the roads drew as flickering triangles and
+   streaks. The shell stops at the edges (street top still 4 cm, sidewalk
+   top still 6 cm). Paths, paving, rugs, mats, tactile bands and manholes
+   sit 1.2 cm above the surface under them. Flat ground does not cast.
+8. **Block maker.** A Blocks tab edits one 32 m block: edges, ground, dropped
+   catalogue pieces, people and cat counts. 🎲 starts from one of the six
+   area generators. Blocks save in this browser and export as JSON.
+   `buildUserBlock` loads that JSON the way `createAreaBlock` loads an area.
+9. **Finding items.** Seven groups instead of one scrolling row of tabs.
    Rooms nests the 16 kits, then furniture, fixtures, small items and decor.
    Search (`/`) looks across every group by name, id and tags. Chips cover
    indoor or outdoor, footprint size, Japanese or European, and seed
    variations. Favourites and Recently used stay in this browser. The hash
-   stores the list. Areas stays the Areas tab. A Block maker tab added to
-   `TABS` shows under Areas & Blocks; this change does not build that panel.
+   stores the list. Areas & Blocks opens the Areas cards, and Blocks beside
+   it opens the block maker.
 
 The asset library was copied from Tiny City Builder (`thetinywisdom/character-creator`).
 That history (town generation, crowd, weather, interactions) is not in this

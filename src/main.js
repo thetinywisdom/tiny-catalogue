@@ -5,6 +5,8 @@ import { Cell } from './viewer/Cell.js';
 import { createPs1Renderer } from './render/ps1.js';
 import { ASSETS, CATALOG, createAsset } from './catalog/index.js';
 import { TAGS, createBrowser, loadFavs, loadRecent, parseHash, rememberRecent, saveFavs, serializeHash, toggleTag } from './catalog/browse.js';
+import { createBlockMaker } from './catalog/blockMaker.js';
+import { buildUserBlock } from './catalog/blocks.js';
 import { BLOCK_SIZE, createAreaBlock } from './catalog/areas.js';
 import { cancelThumbs, thumbInto } from './catalog/thumbs.js';
 import { SHOP_TYPES } from './city/buildings.js';
@@ -74,6 +76,7 @@ const TABS = [
   ['dojo', 'Dojo'],
   ['station', 'Station'],
   ['areas', 'Areas'],
+  ['blocks', 'Blocks'],
 ];
 const catalogEl = document.querySelector('#catalog');
 const itemEl = document.querySelector('#item');
@@ -189,7 +192,7 @@ function renderCatalog() {
   }
 
   const scoped = browser.pool({ ...nav, sub: '', type: '' }, favs, recentIds);
-  const subs = browser.subsFor(nav.group, scoped).filter((s) => s.count || s.id === nav.sub);
+  const subs = browser.subsFor(nav.group, scoped).filter((s) => s.tool || s.count || s.id === nav.sub);
   subRow.replaceChildren();
   if (!nav.wide && subs.length > 1) {
     const all = chip('All', scoped.length, !nav.sub ? 'on' : '');
@@ -202,6 +205,7 @@ function renderCatalog() {
       const on = nav.sub === s.id || (!nav.sub && subs.length === 1);
       const b = chip(s.label, s.count, on ? 'on' : '');
       b.dataset.sub = s.id;
+      if (s.tool) b.dataset.tool = '1';
       b.setAttribute('aria-pressed', String(on));
       subRow.append(b);
     }
@@ -485,14 +489,16 @@ function renderItemPanel() {
 function setView(view) {
   state.view = view;
   catalogEl.hidden = view !== 'catalog';
-  itemEl.hidden = view !== 'item';
-  controls.enabled = view === 'item';
+  itemEl.hidden = view !== 'item' && view !== 'block';
+  controls.enabled = view === 'item' || view === 'block';
   if (view === 'catalog') { hint.textContent = 'Press / to search. Tap a card to open it'; renderCatalog(); }
   if (view === 'item') { hint.textContent = 'Drag to turn · scroll or pinch to zoom'; reframe = true; }
+  if (view === 'block') hint.textContent = 'Drag to turn · click to select, drop or move';
 }
 window.addEventListener('keydown', (e) => {
-  const typing = e.target.matches?.('input, textarea') || e.target.isContentEditable;
+  const typing = e.target.matches?.('input, select, textarea') || e.target.isContentEditable;
   if (e.key === 'Escape') {
+    if (state.view === 'block') return leaveBlocks();
     if (state.view === 'item') return setView('catalog');
     if (e.target === searchInput) {
       if (nav.q) { searchInput.value = ''; commit({ ...nav, q: '', wide: nav.fav || nav.recent }, 'push'); }
@@ -500,9 +506,14 @@ window.addEventListener('keydown', (e) => {
     }
     return;
   }
+  if (state.view === 'block' && !typing) {
+    if (e.key === 'r' || e.key === 'R') blockMaker.rotate90();
+    if (e.key === 'Delete' || e.key === 'Backspace') blockMaker.removeSelected();
+  }
   if (e.key === '/' && !typing && !e.metaKey && !e.ctrlKey && !e.altKey) {
     e.preventDefault();
-    if (state.view !== 'catalog') setView('catalog');
+    if (state.view === 'block') leaveBlocks();
+    else if (state.view !== 'catalog') setView('catalog');
     searchInput.focus();
     searchInput.select();
   }
@@ -526,8 +537,12 @@ function applyPs1(on, { rebuild = true } = {}) {
   try { localStorage.setItem(PS1_KEY, on ? '1' : '0'); } catch { /* private mode */ }
   paintPs1(on);
   if (!rebuild) return;
-  if (itemCell && selected) {
+  if (itemCell && selected && state.view === 'item') {
     itemCell.rebuild({});
+    reframe = true;
+  }
+  if (blockMaker.open) {
+    blockMaker.rebuild();
     reframe = true;
   }
   cancelThumbs();
@@ -613,7 +628,44 @@ function loop(time) {
     }
     preview(itemCell, panelRect(itemEl, W, H), H);
   }
+  if (state.view === 'block' && blockMaker.cell) {
+    propTime += dt;
+    tickProps(blockMaker.cell.scene, propTime);
+    preview(blockMaker.cell, panelRect(itemEl, W, H), H);
+  }
   requestAnimationFrame(loop);
+}
+
+const blockMaker = createBlockMaker({
+  canvas,
+  camera,
+  style,
+  renderer,
+  lighting: lightingPresets.Day,
+  itemEl,
+  toast,
+  onFrame() { reframe = true; },
+  onClose() { leaveBlocks(); },
+});
+function openBlocks() {
+  setView('block');
+  blockMaker.show();
+}
+function leaveBlocks() {
+  blockMaker.close();
+  if (browser.blockTabIds.has(nav.sub)) {
+    nav = browser.normalize({ ...nav, sub: 'areas' });
+    history.replaceState(nav, '', `${location.pathname}${location.search}#${serializeHash(nav)}`);
+  }
+  if (state.view !== 'catalog') setView('catalog');
+  else renderCatalog();
+}
+function openBlockTab(id) {
+  const next = browser.normalize({ ...nav, group: 'places', sub: id, type: '', tags: [], wide: false });
+  const hash = serializeHash(next);
+  if (hash !== serializeHash(nav)) history.pushState(next, '', `${location.pathname}${location.search}#${hash}`);
+  nav = next;
+  openBlocks();
 }
 
 let back = null;
@@ -622,7 +674,12 @@ history.replaceState(nav, '', `${location.pathname}${location.search}#${serializ
 window.addEventListener('popstate', () => {
   nav = browser.normalize(parseHash(location.hash));
   searchInput.value = nav.q;
-  if (state.view === 'item') setView('catalog');
+  if (nav.group === 'places' && browser.blockTabIds.has(nav.sub)) {
+    if (state.view !== 'block') openBlocks();
+    return;
+  }
+  if (state.view === 'block') blockMaker.close();
+  if (state.view !== 'catalog') setView('catalog');
   else renderCatalog();
 });
 catalogEl.addEventListener('submit', (e) => e.preventDefault());
@@ -659,7 +716,10 @@ catalogEl.addEventListener('click', (e) => {
     return commit({ ...nav, group: id, sub, type: '', tags: [], wide: false });
   }
   const sub = from.closest('[data-sub]');
-  if (sub) return commit({ ...nav, sub: nav.sub === sub.dataset.sub ? '' : sub.dataset.sub, type: '', wide: false });
+  if (sub) {
+    if (sub.dataset.tool) return openBlockTab(sub.dataset.sub);
+    return commit({ ...nav, sub: nav.sub === sub.dataset.sub ? '' : sub.dataset.sub, type: '', wide: false });
+  }
   const type = from.closest('[data-type]');
   if (type) return commit({ ...nav, type: nav.type === type.dataset.type ? '' : type.dataset.type, wide: false });
   const tag = from.closest('[data-tag]');
@@ -679,8 +739,9 @@ catalogEl.addEventListener('click', (e) => {
     return commit({ ...nav, q: '', tags: [], fav: false, recent: false, wide: false });
   }
 });
-setView('catalog');
-if (back?.item?.id && CATALOG[back.item.id]) openItem(back.item.id, back.item.params);
+if (nav.group === 'places' && browser.blockTabIds.has(nav.sub)) openBlocks();
+else setView('catalog');
+if (back?.item?.id && CATALOG[back.item.id] && state.view !== 'block') openItem(back.item.id, back.item.params);
 requestAnimationFrame(loop);
 
 Object.assign(window, {
@@ -692,7 +753,20 @@ Object.assign(window, {
     resolve: (id, params) => CATALOG[id]?.resolve?.(params ?? {}),
     /** Orbit the preview camera by `az` radians. */
     orbit: (az) => { const t = controls.target; camera.position.sub(t).applyAxisAngle(new THREE.Vector3(0, 1, 0), az).add(t); controls.update(); },
-    get itemCell() { return itemCell; },
+    /** Current preview camera, for a repeatable render. */
+    pose: () => ({ position: camera.position.toArray(), target: controls.target.toArray() }),
+    /** Place the preview camera and stop the one-shot auto frame. */
+    look(position, target) {
+      reframe = false;
+      camera.position.set(position[0], position[1], position[2]);
+      controls.target.set(target[0], target[1], target[2]);
+      camera.lookAt(target[0], target[1], target[2]);
+      controls.update();
+    },
+    get itemCell() { return state.view === 'block' ? blockMaker.cell : itemCell; },
+    openBlocks,
+    buildUserBlock,
+    blockDraft: () => blockMaker.draft(),
     BLOCK_SIZE, createAreaBlock,
     /**
      * Lay area blocks on the grid and frame them. `layout` is

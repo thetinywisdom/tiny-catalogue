@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { PALETTE } from '../styles/palette.js';
+import { GAP } from '../lib/ground.js';
 import { mergeByMaterial } from '../lib/merge.js';
 import manifest from '../../public/diner-kit/manifest.json';
 import { dinerLayout } from './plan.js';
@@ -382,8 +383,8 @@ const BUILDERS = {
     addCyl(g, 0.16, 0.16, 0.012, mat(style, 'cloth:Cocoa'), [0.02, 1.64, 0], { seg: 8 });
   },
   welcome_mat(g, style) {
-    addBox(g, 0.9, 0.012, 0.56, mat(style, tone('cloth:Dusty rose')), [0, 0.006, 0]);
-    addBox(g, 0.7, 0.004, 0.08, mat(style, 'paint:Off white'), [0, 0.014, 0]);
+    addBox(g, 0.9, 0.012, 0.56, mat(style, tone('cloth:Dusty rose')), [0, GAP + 0.006, 0]);
+    addBox(g, 0.7, 0.008, 0.08, mat(style, 'paint:Off white'), [0, GAP + 0.02, 0]);
   },
 };
 
@@ -535,7 +536,7 @@ export function buildDinerRoom(style, { cutaway = false, seed = 0 } = {}) {
         [-6 + (i + 0.5), (SLAB_TOP + TILE_TOP) / 2, -4 + (j + 0.5)]);
     }
   }
-  addBox(body, 12, 0.22, 8, mat(style, 'concrete:Gray'), [0, SLAB_TOP - 0.11, 0]);
+  addBox(body, 12, 0.22, 8, mat(style, 'concrete:Gray'), [0, SLAB_TOP - GAP - 0.11, 0]);
 
   const winHoles = (spans, y0) => spans.map(([a0, a1]) => ({
     a0: a0 + LIP, a1: a1 - LIP, y0: y0 + LIP, y1: y0 + WIN.h - LIP,

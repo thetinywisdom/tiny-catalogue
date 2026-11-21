@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { capsuleBetween } from '../lib/shapes.js';
 import { signTexture } from '../lib/textures.js';
+import { GAP, LAYER_H, decalMaterial, markGround } from '../lib/ground.js';
 import { box, cyl, disc, face } from './util.js';
 
 // Batch B – traffic and signs, Japanese style: horizontal car signals,
@@ -122,13 +123,18 @@ export const crosswalk = {
    */
   build(_, style, opts = {}) {
     const g = new THREE.Group();
-    const white = style.material('signage', 0xf4f4f0);
+    const white = decalMaterial(style.material('signage', 0xf4f4f0));
     const width = 4, length = opts.length ?? 6;
     const bar = 0.45, gap = 0.45, n = Math.max(1, Math.floor((length - 0.4 + gap) / (bar + gap)));
     const start = -((n - 1) * (bar + gap)) / 2;
-    // bars sit clearly above the road surface (they flickered when they overlapped it)
-    for (let i = 0; i < n; i++) g.add(box(width, 0.02, bar, white, [0, 0.024, start + i * (bar + gap)]));
-    if (!opts.length) g.add(box(width + 1, 0.01, length + 1, style.material('road'), [0, 0.005, 0])); // show it on a bit of road
+    // Bars sit GAP above the caller's y, which is the road surface.
+    for (let i = 0; i < n; i++) {
+      g.add(markGround(box(width, LAYER_H, bar, white, [0, GAP + LAYER_H / 2, start + i * (bar + gap)])));
+    }
+    if (!opts.length) {
+      // A bit of road under the bars when the crossing is shown on its own. Top at y = 0.
+      g.add(markGround(box(width + 1, 0.04, length + 1, style.material('road'), [0, -0.02, 0])));
+    }
     return g;
   },
 };

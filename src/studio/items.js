@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { PALETTE } from '../styles/palette.js';
+import { GAP } from '../lib/ground.js';
 import { mergeByMaterial } from '../lib/merge.js';
 import manifest from '../../public/studio-kit/manifest.json';
 import layout from '../../public/studio-kit/layout.json';
@@ -384,7 +385,7 @@ export function buildStudioRoom(style, { cutaway = false, seed = 0 } = {}) {
   // One solid wood floor. No planks.
   const floorH = TILE_TOP - SLAB_TOP;
   addBox(body, RW, floorH, RD, mat(style, 'wood:Tan'), [0, (SLAB_TOP + TILE_TOP) / 2, 0]);
-  addBox(body, RW, 0.18, RD, mat(style, 'concrete:Gray'), [0, SLAB_TOP - 0.09, 0]);
+  addBox(body, RW, 0.18, RD, mat(style, 'concrete:Gray'), [0, SLAB_TOP - GAP - 0.09, 0]);
 
   const west = -RW / 2 + TH / 2;
   const east = RW / 2 - TH / 2;
