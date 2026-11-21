@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { PALETTE } from '../styles/palette.js';
+import { GAP } from '../lib/ground.js';
 import { mergeByMaterial } from '../lib/merge.js';
 import manifest from '../../public/station-kit/manifest.json';
 import { stationPlan } from './arrange.js';
@@ -172,8 +173,8 @@ const BUILDERS = {
   tactile(g, style) {
     // A short run of the platform edge. One butter colour, bumps included.
     const yellow = mat(style, 'paint:Butter');
-    addBox(g, 1.6, 0.02, 0.3, yellow, [0, 0.01, 0]);
-    for (const x of [-0.5, 0, 0.5]) addBox(g, 0.1, 0.012, 0.1, yellow, [x, 0.026, 0]);
+    addBox(g, 1.6, 0.012, 0.3, yellow, [0, GAP + 0.006, 0]);
+    for (const x of [-0.5, 0, 0.5]) addBox(g, 0.1, 0.012, 0.1, yellow, [x, GAP + 0.022, 0]);
   },
 };
 
@@ -300,11 +301,11 @@ export function buildStationRoom(style, { cutaway = false, seed = 0 } = {}) {
   // One solid concrete floor. The yellow strip is a separate solid piece.
   const floorH = TILE_TOP - SLAB_TOP;
   addBox(body, 16, floorH, 6, mat(style, 'concrete:Stone'), [0, (SLAB_TOP + TILE_TOP) / 2, 0]);
-  addBox(body, 16, 0.22, 6, mat(style, 'concrete:Gray'), [0, SLAB_TOP - 0.11, 0]);
+  addBox(body, 16, 0.22, 6, mat(style, 'concrete:Gray'), [0, SLAB_TOP - GAP - 0.11, 0]);
   const yellow = mat(style, 'paint:Butter');
-  addBox(body, 15.4, 0.018, 0.28, yellow, [0, TILE_TOP + 0.009, 2.42]);
+  addBox(body, 15.4, 0.012, 0.28, yellow, [0, TILE_TOP + GAP + 0.006, 2.42]);
   for (let i = -10; i <= 10; i++) {
-    addBox(body, 0.1, 0.012, 0.1, yellow, [i * 0.7, TILE_TOP + 0.024, 2.42]);
+    addBox(body, 0.1, 0.012, 0.1, yellow, [i * 0.7, TILE_TOP + GAP + 0.022, 2.42]);
   }
   addBox(body, 15.6, 0.05, 0.08, mat(style, 'darkMetal:Charcoal'), [0, TILE_TOP + 0.03, 2.9]);
 

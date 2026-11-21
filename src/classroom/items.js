@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { PALETTE } from '../styles/palette.js';
 import { mulberry32 } from '../lib/rng.js';
 import { lobe, shadeMaterial } from '../lib/foliage.js';
+import { GAP } from '../lib/ground.js';
 import { mergeByMaterial } from '../lib/merge.js';
 import manifest from '../../public/classroom-kit/manifest.json';
 import { classroomPlan } from './arrange.js';
@@ -358,9 +359,9 @@ export function buildClassroomRoom(style, { cutaway = false, seed = 0 } = {}) {
   // One solid wood floor. No planks.
   const floorH = TILE_TOP - SLAB_TOP;
   addBox(body, 9, floorH, 7, mat(style, 'wood:Tan'), [0, (SLAB_TOP + TILE_TOP) / 2, 0]);
-  addBox(body, 9, 0.22, 7, mat(style, 'concrete:Gray'), [0, SLAB_TOP - 0.11, 0]);
+  addBox(body, 9, 0.22, 7, mat(style, 'concrete:Gray'), [0, SLAB_TOP - GAP - 0.11, 0]);
   // Low teaching platform along the blackboard wall.
-  addBox(body, 5.6, 0.08, 1.45, mat(style, 'wood:Tan'), [0.35, TILE_TOP + 0.04, -2.55]);
+  addBox(body, 5.6, 0.08, 1.45, mat(style, 'wood:Tan'), [0.35, TILE_TOP + GAP + 0.04, -2.55]);
 
   const hole = (a0, a1, y0, h) => ({ a0: a0 + LIP, a1: a1 - LIP, y0: y0 + LIP, y1: y0 + h - LIP });
   const doorZ = 2.45;

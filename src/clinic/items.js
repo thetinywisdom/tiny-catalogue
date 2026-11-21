@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { PALETTE } from '../styles/palette.js';
 import { mulberry32 } from '../lib/rng.js';
 import { lobe, shadeMaterial } from '../lib/foliage.js';
+import { GAP } from '../lib/ground.js';
 import { mergeByMaterial } from '../lib/merge.js';
 import manifest from '../../public/clinic-kit/manifest.json';
 import { clinicLayout } from './layout.js';
@@ -478,21 +479,21 @@ export function buildClinicRoom(style, { cutaway = false, seed = 0 } = {}) {
         [-W / 2 + i + 0.5, (SLAB_TOP + TILE_TOP) / 2, -D / 2 + j + 0.5]);
     }
   }
-  addBox(body, W, 0.22, D, mat(style, 'concrete:Gray'), [0, SLAB_TOP - 0.11, 0]);
+  addBox(body, W, 0.22, D, mat(style, 'concrete:Gray'), [0, SLAB_TOP - GAP - 0.11, 0]);
   // Pale floors mark the two exam bays. Seed 0 keeps the hand-placed bays.
   const wainscot = roomTint?.wainscot ?? 'paint:Seafoam';
   const bay = roomTint?.bay ?? 'paint:Sky';
   if (plan.divider) {
     const { x, z } = plan.divider;
     for (const bed of plan.placements.filter((p) => p.item === 'exam_bed')) {
-      addBox(body, 2.3, 0.01, 2.05, mat(style, bay), [bed.x, TILE_TOP + 0.006, bed.z]);
+      addBox(body, 2.3, 0.012, 2.05, mat(style, bay), [bed.x, TILE_TOP + GAP + 0.006, bed.z]);
     }
     addBox(body, 0.08, 1.15, 1.7, mat(style, 'paint:Off white'), [x, 0.575, z]);
     addBox(body, 0.1, 0.04, 1.74, mat(style, wainscot), [x, 1.15, z]);
     hits.push({ x, z, hw: 0.05, hd: 0.85 });
   } else {
-    addBox(body, 2.5, 0.01, 2.15, mat(style, 'paint:Sky'), [-2.35, TILE_TOP + 0.006, -2.55]);
-    addBox(body, 2.5, 0.01, 2.15, mat(style, 'paint:Sky'), [1.7, TILE_TOP + 0.006, -2.55]);
+    addBox(body, 2.5, 0.012, 2.15, mat(style, 'paint:Sky'), [-2.35, TILE_TOP + GAP + 0.006, -2.55]);
+    addBox(body, 2.5, 0.012, 2.15, mat(style, 'paint:Sky'), [1.7, TILE_TOP + GAP + 0.006, -2.55]);
     addBox(body, 0.08, 1.15, 1.7, mat(style, 'paint:Off white'), [0, 0.575, -2.7]);
     addBox(body, 0.1, 0.04, 1.74, mat(style, 'paint:Seafoam'), [0, 1.15, -2.7]);
     hits.push({ x: 0, z: -2.7, hw: 0.05, hd: 0.85 });

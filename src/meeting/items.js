@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { PALETTE } from '../styles/palette.js';
 import { mulberry32 } from '../lib/rng.js';
 import { lobe, shadeMaterial } from '../lib/foliage.js';
+import { GAP } from '../lib/ground.js';
 import { mergeByMaterial } from '../lib/merge.js';
 import manifest from '../../public/meeting-kit/manifest.json';
 import layout from '../../public/meeting-kit/layout.json';
@@ -311,7 +312,7 @@ export function buildMeetingRoom(style, { cutaway = false, seed = 0 } = {}) {
   // One solid carpet. No checker.
   const floorH = TILE_TOP - SLAB_TOP;
   addBox(body, RW, floorH, RD, mat(style, 'cloth:Navy'), [0, (SLAB_TOP + TILE_TOP) / 2, 0]);
-  addBox(body, RW, 0.2, RD, mat(style, 'concrete:Gray'), [0, SLAB_TOP - 0.1, 0]);
+  addBox(body, RW, 0.2, RD, mat(style, 'concrete:Gray'), [0, SLAB_TOP - GAP - 0.1, 0]);
 
   const west = -RW / 2 + TH / 2;
   const east = RW / 2 - TH / 2;

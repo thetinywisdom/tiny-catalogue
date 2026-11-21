@@ -116,6 +116,13 @@ body[data-look="clean"] .cat-card img { image-rendering: auto; }
 #item .slider output { min-width: 3.2em; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
 #item .seed-row { display: flex; gap: 8px; align-items: center; }
 #item .seed-row input { width: 8em; background: #17181b; color: inherit; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font: inherit; }
+#item select, #item input[type="text"] {
+  background: #17181b; color: inherit; border: 1px solid var(--line); border-radius: 8px;
+  padding: 6px 8px; font: inherit; min-height: 40px;
+}
+#item select { width: 100%; margin: 4px 0 8px; }
+#item .seed-row select { width: auto; flex: 1; min-width: 0; margin: 0; }
+#item input[type="text"] { width: 100%; }
 #item pre { white-space: pre-wrap; word-break: break-all; background: #17181b; border: 1px solid var(--line); border-radius: 8px; padding: 8px; font-size: 12px; }
 @media (max-width: 760px), (orientation: portrait) and (max-width: 1100px) {
   #item { left: 8px; right: 8px; width: auto; top: auto; height: 52vh; }

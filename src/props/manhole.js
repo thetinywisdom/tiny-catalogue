@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { GAP, decalMaterial, markGround } from '../lib/ground.js';
 import { mulberry32 } from '../lib/rng.js';
 import { paletteCanvas, paletteHex } from '../styles/palette.js';
 
@@ -148,8 +149,8 @@ export function manholeCover(style, pattern, seed = 1) {
   const radius = 0.3 + rng() * 0.08;
   const g = new THREE.Group();
   const rimH = 0.02;
-  // sit 2 cm off the ground: closer than that flickers against the pavement
-  const y0 = 0.02;
+  // The caller's y is the surface. The cover starts GAP above that.
+  const y0 = GAP;
   const rim = new THREE.Mesh(
     new THREE.CylinderGeometry(radius, radius * 0.96, rimH, SIDES),
     style.material('metal', paletteHex(pick(rng, METAL))),
@@ -157,13 +158,12 @@ export function manholeCover(style, pattern, seed = 1) {
   rim.position.y = y0 + rimH / 2;
   const face = new THREE.Mesh(
     new THREE.CircleGeometry(radius * 0.9, SIDES),
-    style.material('metal', 0xffffff, texture(pattern, seed)),
+    decalMaterial(style.material('metal', 0xffffff, texture(pattern, seed))),
   );
   face.rotation.x = -Math.PI / 2;
-  face.position.y = y0 + rimH + 0.02;
-  face.material.polygonOffset = true;
-  face.material.polygonOffsetFactor = -2;
-  face.material.polygonOffsetUnits = -2;
+  face.position.y = y0 + rimH + GAP;
+  markGround(rim);
+  markGround(face);
   g.add(rim, face);
   g.rotation.y = rng() * Math.PI * 2;
   return g;

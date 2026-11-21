@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { PALETTE } from '../styles/palette.js';
+import { GAP } from '../lib/ground.js';
 import { mergeByMaterial } from '../lib/merge.js';
 import manifest from '../../public/police-kit/manifest.json';
 import { policeLayout } from './layout.js';
@@ -455,7 +456,7 @@ export function buildPoliceRoom(style, { cutaway = false, seed = 0 } = {}) {
         [-W / 2 + i + 0.5, (SLAB_TOP + TILE_TOP) / 2, -D / 2 + j + 0.5]);
     }
   }
-  addBox(body, W, 0.22, D, mat(style, 'concrete:Charcoal'), [0, SLAB_TOP - 0.11, 0]);
+  addBox(body, W, 0.22, D, mat(style, 'concrete:Charcoal'), [0, SLAB_TOP - GAP - 0.11, 0]);
 
   const winHoles = (spans, y0) => spans.map(([a0, a1]) => ({
     a0: a0 + LIP, a1: a1 - LIP, y0: y0 + LIP, y1: y0 + WIN.h - LIP,

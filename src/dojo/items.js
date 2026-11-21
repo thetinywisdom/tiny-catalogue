@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { PALETTE } from '../styles/palette.js';
+import { GAP } from '../lib/ground.js';
 import { mergeByMaterial } from '../lib/merge.js';
 import manifest from '../../public/dojo-kit/manifest.json';
 import { dojoPlan } from './arrange.js';
@@ -340,10 +341,10 @@ export function buildDojoRoom(style, { cutaway = false, seed = 0 } = {}) {
   // Wood border, then one solid tatami slab. No seams inside the mat.
   const floorH = TILE_TOP - SLAB_TOP;
   addBox(body, 9, floorH, 9, mat(style, 'wood:Tan'), [0, (SLAB_TOP + TILE_TOP) / 2, 0]);
-  addBox(body, 9, 0.22, 9, mat(style, 'concrete:Gray'), [0, SLAB_TOP - 0.11, 0]);
+  addBox(body, 9, 0.22, 9, mat(style, 'concrete:Gray'), [0, SLAB_TOP - GAP - 0.11, 0]);
   if (plan.mat) {
     const { x, z, w, d } = plan.mat;
-    addBox(body, w, 0.028, d, mat(style, 'paint:Sage'), [x, TILE_TOP + 0.016, z]);
+    addBox(body, w, 0.028, d, mat(style, 'paint:Sage'), [x, TILE_TOP + GAP + 0.014, z]);
   }
 
   const hole = (a0, a1, y0, h) => ({ a0: a0 + LIP, a1: a1 - LIP, y0: y0 + LIP, y1: y0 + h - LIP });

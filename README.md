@@ -59,7 +59,40 @@ Each area is a 32 × 32 m block centred on its own origin. +z is north. The
 group's `userData.block` is `{ id, footprint: [32, 32], edges }`, and
 `edges.n`, `edges.e`, `edges.s`, `edges.w` are `street` or `sidewalk`. A
 street edge is a 3 m strip whose top is at 4 cm. A sidewalk edge is 1.5 m
-with its top at 6 cm. Both are flush with the footprint.
+with its top at 6 cm. Both are flush with the footprint. Anything laid on
+the interior (a road, a path, paving) sits 1.2 cm above that shell.
+
+## A block you made
+
+The Blocks tab edits one block: each edge is street or sidewalk, the ground
+is asphalt, paving, grass or gravel, and clicks drop buildings, props,
+foliage and vehicles on a 0.5 m grid. People and cats are counts. They stay
+faceless. 🎲 fills the block from one of the six areas, then you edit it.
+Save keeps it in this browser. Export writes this JSON, and `buildUserBlock`
+loads it:
+
+```js
+import { buildUserBlock } from './src/catalog/blocks.js';
+
+const block = buildUserBlock({
+  version: 1,
+  name: 'North shops',
+  seed: 4,
+  ground: 'paving', // asphalt | paving | grass | gravel
+  edges: { n: 'sidewalk', e: 'street', s: 'sidewalk', w: 'street' },
+  people: 4,
+  cats: 1,
+  items: [
+    { id: 'building.shop', x: -4, z: 6, rot: 0, params: { seed: 2, shopType: 'Ramen' } },
+  ],
+}, style);
+scene.add(block);
+```
+
+`x` and `z` are metres from the centre, snapped to 0.5 m. `rot` is radians
+around y. `params` is what `createAsset` already accepts for that id.
+`block.userData.block` is `{ id, footprint: [32, 32], edges, ground, custom: true }`.
+People and cats use the same crowd spacing as the areas.
 
 Put the next block one footprint away. Two street edges then make one 6 m
 road, and two sidewalk edges make one 3 m pavement, with no step at the join.

@@ -4,6 +4,8 @@ import { lightingPresets, style } from './styles/index.js';
 import { Cell } from './viewer/Cell.js';
 import { createPs1Renderer } from './render/ps1.js';
 import { ASSETS, CATALOG, createAsset } from './catalog/index.js';
+import { createBlockMaker } from './catalog/blockMaker.js';
+import { buildUserBlock } from './catalog/blocks.js';
 import { BLOCK_SIZE, createAreaBlock } from './catalog/areas.js';
 import { cancelThumbs, thumbInto } from './catalog/thumbs.js';
 import { SHOP_TYPES } from './city/buildings.js';
@@ -73,6 +75,7 @@ const TABS = [
   ['dojo', 'Dojo'],
   ['station', 'Station'],
   ['areas', 'Areas'],
+  ['blocks', 'Blocks'],
 ];
 const catalogEl = document.querySelector('#catalog');
 const itemEl = document.querySelector('#item');
@@ -107,10 +110,15 @@ function usesRoomSeed(a) {
 function renderCatalog() {
   const tabs = catalogEl.querySelector('.cat-tabs');
   tabs.replaceChildren(...TABS.map(([k, l]) => {
-    const count = k === 'palette' ? '' : ` ${k === 'all' ? items.length : items.filter((a) => a.group === k).length}`;
-    const b = Object.assign(document.createElement('button'), { textContent: k === 'palette' ? l : `${l}${count}` });
+    const plain = k === 'palette' || k === 'blocks';
+    const count = plain ? '' : ` ${k === 'all' ? items.length : items.filter((a) => a.group === k).length}`;
+    const b = Object.assign(document.createElement('button'), { textContent: plain ? l : `${l}${count}` });
     b.classList.toggle('on', k === catTab);
-    b.onclick = () => { catTab = k; renderCatalog(); };
+    b.onclick = () => {
+      if (k === 'blocks') { openBlocks(); return; }
+      catTab = k;
+      renderCatalog();
+    };
     return b;
   }));
   const grid = catalogEl.querySelector('.cat-grid');
@@ -297,12 +305,19 @@ function renderItemPanel() {
 function setView(view) {
   state.view = view;
   catalogEl.hidden = view !== 'catalog';
-  itemEl.hidden = view !== 'item';
-  controls.enabled = view === 'item';
+  itemEl.hidden = view !== 'item' && view !== 'block';
+  controls.enabled = view === 'item' || view === 'block';
   if (view === 'catalog') { hint.textContent = 'Tap an item to turn it around and see its settings'; renderCatalog(); }
   if (view === 'item') { hint.textContent = 'Drag to turn · scroll or pinch to zoom'; reframe = true; }
+  if (view === 'block') hint.textContent = 'Drag to turn · click to select, drop or move';
 }
-window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && state.view === 'item') setView('catalog'); });
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && state.view === 'block') blockMaker.close();
+  if (e.key === 'Escape' && (state.view === 'item' || state.view === 'block')) setView('catalog');
+  if (state.view !== 'block' || e.target.matches('input, select, textarea')) return;
+  if (e.key === 'r' || e.key === 'R') blockMaker.rotate90();
+  if (e.key === 'Delete' || e.key === 'Backspace') blockMaker.removeSelected();
+});
 
 // PS1 look (default on). Off draws full resolution, detail 1, no dither,
 // outlines or vertex snap. Remembered in this browser. Palette colours stay.
@@ -322,8 +337,12 @@ function applyPs1(on, { rebuild = true } = {}) {
   try { localStorage.setItem(PS1_KEY, on ? '1' : '0'); } catch { /* private mode */ }
   paintPs1(on);
   if (!rebuild) return;
-  if (itemCell && selected) {
+  if (itemCell && selected && state.view === 'item') {
     itemCell.rebuild({});
+    reframe = true;
+  }
+  if (blockMaker.open) {
+    blockMaker.rebuild();
     reframe = true;
   }
   cancelThumbs();
@@ -410,7 +429,28 @@ function loop(time) {
     }
     preview(itemCell, panelRect(itemEl, W, H), H);
   }
+  if (state.view === 'block' && blockMaker.cell) {
+    propTime += dt;
+    tickProps(blockMaker.cell.scene, propTime);
+    preview(blockMaker.cell, panelRect(itemEl, W, H), H);
+  }
   requestAnimationFrame(loop);
+}
+
+const blockMaker = createBlockMaker({
+  canvas,
+  camera,
+  style,
+  renderer,
+  lighting: lightingPresets.Day,
+  itemEl,
+  toast,
+  onFrame() { reframe = true; },
+  onClose() { setView('catalog'); },
+});
+function openBlocks() {
+  setView('block');
+  blockMaker.show();
 }
 
 let back = null;
@@ -429,7 +469,20 @@ Object.assign(window, {
     resolve: (id, params) => CATALOG[id]?.resolve?.(params ?? {}),
     /** Orbit the preview camera by `az` radians. */
     orbit: (az) => { const t = controls.target; camera.position.sub(t).applyAxisAngle(new THREE.Vector3(0, 1, 0), az).add(t); controls.update(); },
-    get itemCell() { return itemCell; },
+    /** Current preview camera, for a repeatable render. */
+    pose: () => ({ position: camera.position.toArray(), target: controls.target.toArray() }),
+    /** Place the preview camera and stop the one-shot auto frame. */
+    look(position, target) {
+      reframe = false;
+      camera.position.set(position[0], position[1], position[2]);
+      controls.target.set(target[0], target[1], target[2]);
+      camera.lookAt(target[0], target[1], target[2]);
+      controls.update();
+    },
+    get itemCell() { return state.view === 'block' ? blockMaker.cell : itemCell; },
+    openBlocks,
+    buildUserBlock,
+    blockDraft: () => blockMaker.draft(),
     BLOCK_SIZE, createAreaBlock,
     /**
      * Lay area blocks on the grid and frame them. `layout` is
