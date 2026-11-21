@@ -10,6 +10,13 @@ around, change its settings, and copy the `createAsset(...)` line.
 People are faceless, the same as the cats. There is no town to walk and no
 separate character creator. The app opens on the catalogue.
 
+The list is grouped: Buildings, Street & props, Nature, Vehicles, Characters
+(people and cats), Rooms (the 16 kits), and Areas & Blocks. Press `/` to
+search every group by name or id. Chips narrow by indoor or outdoor, size,
+Japanese or European style, and whether the piece has variations. A star
+saves a favourite in this browser. The address keeps the group and the
+search, so a link opens the same list.
+
 **PS1**, next to Colours, turns the chunky look off: a smooth full-resolution
 picture, more geometry, no dither or outlines. Colours stay the same. The
 choice is remembered in this browser. On is the PS1 look.
