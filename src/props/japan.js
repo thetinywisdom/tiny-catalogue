@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { signTexture } from '../lib/textures.js';
 import { bicycle } from './vehicles.js';
-import { box, cyl } from './util.js';
+import { box, cyl, face } from './util.js';
 
 // Batch E – Japanese street details: stone lanterns, red paper lanterns,
 // sandwich-board signs, bike racks. Real-world sizes in metres; every prop
@@ -48,7 +48,8 @@ export const paperLantern = {
   },
 };
 
-/** A-frame sandwich board (立て看板) outside a shop. */
+/** A-frame sandwich board (立て看板) outside a shop.
+ *  The panels share a top edge, lean out the same amount, and stand on y = 0. */
 export const sandwichBoard = {
   id: 'sandwichBoard',
   label: 'Sandwich board',
@@ -56,19 +57,38 @@ export const sandwichBoard = {
   build({ variant }, style) {
     const g = new THREE.Group();
     const frame = style.material('wood', 0x7a5232);
+    const metal = style.material('darkMetal');
     const text = variant === 'Open' ? ['OPEN', '営業中'] : ['本日の', 'ランチ', '¥800'];
-    const face = style.material('signage', 0xffffff, signTexture({ lines: text, bg: '#2a3a30', fg: '#f4f1e6', w: 64, h: 96 }));
+    const chalk = style.material('signage', 0xffffff, signTexture({ lines: text, bg: '#2a3a30', fg: '#f4f1e6', w: 64, h: 96 }));
+    const W = 0.5, L = 0.8, T = 0.03;
+    // 12° from vertical, inside the 10–15° stand. Mirror images: +z leans
+    // forward-out, −z leans back-out, and the inner bottom edge of each
+    // panel is exactly on the ground.
+    const lean = 12 * Math.PI / 180;
+    const hingeY = L * Math.cos(lean);
+
     for (const s of [1, -1]) {
       const panel = new THREE.Group();
-      panel.rotation.x = s * 0.2;
-      panel.position.z = s * 0.12;
-      panel.add(box(0.5, 0.8, 0.03, frame, [0, 0.42, 0]));
-      const f = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.68), face);
-      f.position.set(0, 0.44, s * 0.017);
-      if (s < 0) f.rotation.y = Math.PI;
-      panel.add(f);
+      panel.position.y = hingeY;
+      // The panel hangs from the hinge (local −y). This sign sends that
+      // foot outward; the opposite sign would fold the boards into a V.
+      panel.rotation.x = -s * lean;
+      // Inner face on the hinge (local z = 0); the board's thickness grows outward.
+      panel.add(box(W, L, T, frame, [0, -L / 2, s * (T / 2)]));
+      const board = face(0.42, 0.68, chalk, [0, -L / 2, s * (T + 0.002)]);
+      // Back face looks outward (−z). A half turn keeps the chalk reading
+      // left to right instead of mirroring it.
+      if (s < 0) board.rotation.y = Math.PI;
+      panel.add(board);
       g.add(panel);
     }
+
+    // Hinge pin along the shared top edge. A little longer than the boards
+    // so the ends read from the front, and a thin spreader near the feet.
+    g.add(cyl(0.016, 0.016, W + 0.06, metal, [0, hingeY, 0], { segments: 8, rot: [0, 0, Math.PI / 2] }));
+    const down = 0.78;
+    const innerZ = down * L * Math.sin(lean);
+    g.add(box(0.012, 0.012, innerZ * 2 + 0.012, metal, [0, hingeY * (1 - down), 0]));
     return g;
   },
 };

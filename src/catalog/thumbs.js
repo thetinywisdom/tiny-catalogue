@@ -9,7 +9,7 @@ import { setDetail } from '../lib/shapes.js';
 // show them at once and only new assets get drawn. Bump VERSION when assets
 // change shape and their pictures should be redrawn.
 
-const VERSION = 23; // 23: ground layers no longer share a plane
+const VERSION = 24; // 24: sandwich board is an A-frame; hydrant sign is only the disc
 const PS1_SIZE = 64; // drawn small, shown scaled up with crisp pixels
 const CLEAN_SIZE = 160; // the smooth look is drawn larger so the cards stay sharp
 const mem = new Map();

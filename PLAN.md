@@ -72,6 +72,14 @@ renderer. People stay faceless. Cats stay faceless.
    variations. Favourites and Recently used stay in this browser. The hash
    stores the list. Areas & Blocks opens the Areas cards, and Blocks beside
    it opens the block maker.
+10. **Sandwich board stands, and the hydrant sign is round.**
+    `prop.sandwichBoard` is an A-frame: the panels meet on a top hinge, each
+    leans out about 12°, and both bottom edges sit on y = 0, with a thin
+    spreader near the feet. The chalk (本日のランチ ¥800, or OPEN / 営業中)
+    faces outward. The standing depth is about 0.39 m, inside the existing
+    collider, so shotengai and shop-front placement did not move.
+    `prop.hydrant`'s 消火栓 lettering is on the round plate. The square
+    canvas corners are discarded, and the decal rim is the plate rim.
 
 The asset library was copied from Tiny City Builder (`thetinywisdom/character-creator`).
 That history (town generation, crowd, weather, interactions) is not in this
