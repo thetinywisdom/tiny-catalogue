@@ -50,6 +50,36 @@ the same thing. For a person, settings you change after that stay until the
 next New look, and the copied line includes every setting and the seed. An
 area works the same way: the seed is the layout, and Density, People and
 Cats stay put until you change them.
+
+## Placing area blocks
+
+Each area is a 32 × 32 m block centred on its own origin. +z is north. The
+group's `userData.block` is `{ id, footprint: [32, 32], edges }`, and
+`edges.n`, `edges.e`, `edges.s`, `edges.w` are `street` or `sidewalk`. A
+street edge is a 3 m strip whose top is at 4 cm. A sidewalk edge is 1.5 m
+with its top at 6 cm. Both are flush with the footprint.
+
+Put the next block one footprint away. Two street edges then make one 6 m
+road, and two sidewalk edges make one 3 m pavement, with no step at the join.
+
+```js
+import { BLOCK_SIZE, createAreaBlock } from './src/catalog/areas.js';
+import { style } from './src/styles/index.js';
+
+// 2 columns × 3 rows. Touching edges in this order are the same type.
+const rows = [
+  ['area.shrine', 'area.square'],
+  ['area.lane', 'area.shotengai'],
+  ['area.alley', 'area.station'],
+];
+rows.forEach((row, r) => {
+  row.forEach((id, c) => {
+    const block = createAreaBlock(id, { seed: 1 }, style);
+    block.position.set(c * BLOCK_SIZE, 0, (1 - r) * BLOCK_SIZE);
+    scene.add(block);
+  });
+});
+```
 `style.setPs1(false)` is the smooth render; the catalogue's PS1 button calls it.
 
 ## Docs

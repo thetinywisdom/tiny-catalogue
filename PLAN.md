@@ -41,13 +41,15 @@ renderer. People stay faceless. Cats stay faceless.
 4. **PS1 on/off.** Header button next to Colours. On is the existing look.
    Off is a smooth full-resolution render at geometry detail 1. The open
    item rebuilds and the thumbnails redraw, without reloading the page.
-5. **Areas.** Six seeded dioramas on the Areas tab: Shotengai, Residential
-   lane, Station plaza, Shrine corner, Old-town square, Back alley. Built
-   from existing catalogue items. `seed` plus Density, People and Cats.
-   There is no station exterior in the catalogue, so the plaza uses the
-   post office. There is no crate prop and no standalone AC unit: the
-   delivery scooter's boxes, the bins, and the AC units the back-dressing
-   pass already adds stand in. The torii is the one inside `building.shrine`.
+5. **Areas.** Six seeded 32 × 32 m blocks on the Areas tab: Shotengai,
+   Residential lane, Station plaza, Shrine corner, Old-town square, Back
+   alley. Built from existing catalogue items. `seed` plus Density, People
+   and Cats. Each block records `userData.block` (`footprint`, and `street`
+   or `sidewalk` on N/E/S/W) so blocks can sit on a grid. The shotengai
+   street is open. People and cats stand on a carrier, because the walk pose
+   rewrites the rig position; walkers each keep their own path. There is no
+   station exterior, so the plaza uses the post office. There is no crate
+   prop and no standalone AC unit. The torii is the one inside `building.shrine`.
 
 The asset library was copied from Tiny City Builder (`thetinywisdom/character-creator`).
 That history (town generation, crowd, weather, interactions) is not in this
