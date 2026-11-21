@@ -613,7 +613,9 @@ export const listAssets = (category) => ASSETS.filter((a) => !category || a.cate
 export function createAsset(id, params, style) {
   const asset = CATALOG[id];
   if (!asset) throw new Error(`Unknown asset "${id}"`);
-  const obj = asset.build({ ...asset.params, ...params }, style);
+  const merged = { ...asset.params, ...params };
+  const obj = asset.build(merged, style);
   obj.userData.asset = id;
+  obj.userData.params = merged;
   return obj;
 }

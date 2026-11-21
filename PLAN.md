@@ -61,6 +61,10 @@ renderer. People stay faceless. Cats stay faceless.
    streaks. The shell stops at the edges (street top still 4 cm, sidewalk
    top still 6 cm). Paths, paving, rugs, mats, tactile bands and manholes
    sit 1.2 cm above the surface under them. Flat ground does not cast.
+8. **Block maker.** A Blocks tab edits one 32 m block: edges, ground, dropped
+   catalogue pieces, people and cat counts. 🎲 starts from one of the six
+   area generators. Blocks save in this browser and export as JSON.
+   `buildUserBlock` loads that JSON the way `createAreaBlock` loads an area.
 
 The asset library was copied from Tiny City Builder (`thetinywisdom/character-creator`).
 That history (town generation, crowd, weather, interactions) is not in this

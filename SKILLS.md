@@ -36,7 +36,9 @@ you need that. It is not the publish path.
 index.html, src/main.js     the catalogue UI: tabs, item panel, palette, render loop
 src/catalog/index.js        ASSETS, CATALOG, createAsset
 src/catalog/humans.js       People tiles and resolveHuman (seed + explicit edits)
-src/catalog/areas.js        six 32 m blocks (Areas tab)
+src/catalog/areas.js        six 32 m blocks (Areas tab), layBlock, placeAreaCrowd
+src/catalog/blocks.js       saved-block JSON and buildUserBlock
+src/catalog/blockMaker.js   Blocks tab: edit one block in the catalogue panel
 src/catalog/thumbs.js       card pictures, cached in the browser
 src/office, src/diner, src/clinic, src/police, src/minimarket,
 src/meeting, src/bedroom, src/studio, src/cafe, src/classroom,
@@ -137,6 +139,20 @@ shell (`GAP` in `src/lib/ground.js`). Flat ground does not cast a shadow.
 `node scripts/check-ground.mjs` builds the areas and fails if two ground
 slabs overlap.
 
+## Blocks
+
+The Blocks tab (`src/catalog/blockMaker.js`) edits one 32 × 32 m block in
+the same panel and the same PS1 view. Edges are street or sidewalk. Ground
+is asphalt, paving, grass or gravel. A dropdown drops buildings, props,
+foliage and vehicles; a click on the block places them on a 0.5 m grid.
+Move, Rotate 90° and a free-rotate slider edit the selection. People and
+Cats are counts. They are placed with `placeAreaCrowd` (the same spacing
+the areas use) and stay faceless.
+
+🎲 fills the block from one of the six area generators (`blockFromPreset`),
+then the pieces can be edited. Save writes `localStorage` (`tinycity.blocks`).
+Export and Import are the JSON `buildUserBlock` reads. See README.
+
 Nobori and birds move because `tickProps` already walks the item. People
 and cats set `userData.tick` on a carrier group, which `tickProps` calls.
 The walk pose rewrites the rig position, so the carrier is what stands on
@@ -212,7 +228,8 @@ No unit test suite. Before committing:
 - `window.__cc`: `state`, `setView('catalog'|'item')`, `openItem(id, params)`,
   `CATALOG`, `ASSETS`, `resolve(id, params)`, `createAsset`, `orbit(az)`,
   `pose()`, `look(position, target)` (place the preview camera),
-  `human`, `itemCell`, `setPs1(on)` (PS1 look, no reload).
+  `human`, `itemCell`, `setPs1(on)` (PS1 look, no reload), `openBlocks`,
+  `buildUserBlock`, `blockDraft`.
 
 Check desktop (1280×720) and phone (390×844).
 

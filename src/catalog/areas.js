@@ -103,7 +103,7 @@ function put(g, cols, obj, x, z, rotY = 0) {
 
 // Interior top matches a street edge, so the shell and the road meet flush
 // where they abut. A sidewalk edge stays 2 cm higher: that is the curb.
-const INTERIOR_TOP = EDGE_TOP.street;
+export const INTERIOR_TOP = EDGE_TOP.street;
 
 function addTop(g, w, d, material, x, top, z, h = SLAB_H) {
   if (w < 0.02 || d < 0.02) return top;
@@ -134,7 +134,7 @@ function fillExcept(g, material, x0, x1, z0, z1, hole, top) {
 // the corner is its own piece (a street wins, so a road runs unbroken).
 // Nothing shares a plan rectangle with anything else at the same depth.
 // `hole` is a building pad the interior should not cover.
-function layBlock(g, style, edges, role, color, hole = null) {
+export function layBlock(g, style, edges, role, color, hole = null) {
   const width = (key) => EDGE_W[edges[key]] ?? 0;
   const wW = width('w');
   const wE = width('e');
@@ -324,6 +324,10 @@ function clearRun(cols, rects, x, z, axis, pad) {
 // One placement for every area. Figures land on `rects`, clear of `cols`,
 // at least `sep` apart. A walker ping-pongs on a private segment of that
 // rect and stops short of anyone else, so paths never meet at one point.
+export function placeAreaCrowd(g, cols, style, seed, spec) {
+  crowd(g, cols, style, stream(seed, 902), stream(seed, 903), spec);
+}
+
 function crowd(g, cols, style, rngP, rngC, { rects, people = 0, cats = 0, axis = 'x', pool = CROWD }) {
   const catSpots = cats > 0 ? spots(rngC, rects, cols, cats, 0.6, 0.32, []) : [];
   for (const [x, z] of catSpots) addCatAt(g, cols, style, rngC, x, z);

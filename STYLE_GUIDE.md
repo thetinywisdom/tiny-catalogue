@@ -466,6 +466,7 @@ A game places one with `createAsset('area.shotengai', { seed: 1 }, style)`
   strips. A road, a path or a paving on the interior sits 1.2 cm above the
   shell, and a decal (manhole, zebra bar, rug, mat, tactile band) sits 1.2 cm
   above the surface it is painted on. Flat ground does not cast a shadow.
+  A block made in the Blocks tab uses this same shell.
 - `seed` is the layout. The same seed rebuilds the same places. Density
   (Sparse, Normal, Busy) changes how many shops, houses, trees or props are
   out. People and Cats turn those parts on or off. People stay faceless. Cats
