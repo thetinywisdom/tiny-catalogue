@@ -4,7 +4,7 @@ import { lightingPresets, style } from './styles/index.js';
 import { Cell } from './viewer/Cell.js';
 import { createPs1Renderer } from './render/ps1.js';
 import { ASSETS, CATALOG, createAsset } from './catalog/index.js';
-import { thumbInto } from './catalog/thumbs.js';
+import { cancelThumbs, thumbInto } from './catalog/thumbs.js';
 import { SHOP_TYPES } from './city/buildings.js';
 import { human } from './subjects/human.js';
 import { RUN_SPEED, WALK_SPEED, createGait, poseGait, setGaitEngine, stepGait, tuneOf } from './anim/gait.js';
@@ -268,6 +268,34 @@ function setView(view) {
 }
 window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && state.view === 'item') setView('catalog'); });
 
+// PS1 look (default on). Off draws full resolution, detail 1, no dither,
+// outlines or vertex snap. Remembered in this browser. Palette colours stay.
+const PS1_KEY = 'tinycity.ps1';
+function savedPs1() {
+  try { return localStorage.getItem(PS1_KEY) !== '0'; } catch { return true; }
+}
+const ps1Btn = document.querySelector('#ps1Btn');
+function paintPs1(on) {
+  ps1Btn.classList.toggle('on', on);
+  ps1Btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  ps1Btn.title = on ? 'PS1 look is on. Click for a smooth render.' : 'Smooth render. Click for the PS1 look.';
+  document.body.dataset.look = on ? 'ps1' : 'clean';
+}
+function applyPs1(on, { rebuild = true } = {}) {
+  style.setPs1(on);
+  try { localStorage.setItem(PS1_KEY, on ? '1' : '0'); } catch { /* private mode */ }
+  paintPs1(on);
+  if (!rebuild) return;
+  if (itemCell && selected) {
+    itemCell.rebuild({});
+    reframe = true;
+  }
+  cancelThumbs();
+  if (state.view === 'catalog' || catalogEl.querySelector('.cat-card')) renderCatalog();
+}
+ps1Btn.onclick = () => applyPs1(!style.ps1);
+applyPs1(savedPs1(), { rebuild: false });
+
 const paletteBtn = document.querySelector('#paletteBtn'), palettePanel = document.querySelector('#palettePanel');
 const STRIP = ['Sky', 'Sage', 'Moss', 'Butter', 'Apricot', 'Dusty rose', 'Powder blue', 'Lilac', 'Brick', 'Tan', 'Paper', 'Charcoal'];
 paletteBtn.innerHTML = `🎨<span> ${activePalette()}</span>`;
@@ -358,7 +386,10 @@ requestAnimationFrame(loop);
 
 Object.assign(window, {
   __cc: {
-    state, setView, openItem, CATALOG, ASSETS, human, createAsset, gait, tuneOf,
+    state, setView, openItem, CATALOG, ASSETS, human, createAsset, gait, tuneOf, style,
+    /** Turn the PS1 look on or off without reloading. */
+    setPs1: (on) => applyPs1(on),
+    get ps1() { return style.ps1; },
     resolve: (id, params) => CATALOG[id]?.resolve?.(params ?? {}),
     /** Orbit the preview camera by `az` radians. */
     orbit: (az) => { const t = controls.target; camera.position.sub(t).applyAxisAngle(new THREE.Vector3(0, 1, 0), az).add(t); controls.update(); },

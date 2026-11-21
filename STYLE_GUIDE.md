@@ -25,6 +25,12 @@ spot the characters.**
 | Blob shadows | **Off** (owner's call): the real cast shadows are enough; `blobShadows: true` in the style turns the disc back on | |
 | Geometry detail | **0.3×** the smooth segment counts | Low-poly everywhere |
 
+The catalogue's **PS1** button can turn this treatment off. Off draws at the
+screen's resolution (antialiasing, device pixel ratio), with detail **1**,
+and without the low-res target, dither, pixel outlines or vertex snap. The
+palette does not change. On is the table above. Wheels stay eight-sided
+either way. Painted signs stay nearest-filtered so the lettering stays sharp.
+
 ## 2. Colour: the palette (a rule)
 
 **Everything uses one palette** (`PALETTE` in `src/styles/palette.js`, also in

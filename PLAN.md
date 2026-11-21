@@ -17,7 +17,7 @@ renderer. People stay faceless. Cats stay faceless.
 | Area | Decision |
 |---|---|
 | App | Catalogue only. No mode nav. 🎨 Colours stays. |
-| Look | PS1, one palette at a time (Golden hour is the default). Building colours stay natural greys, brick and wood, except where a catalogue piece already uses `paint` (European houses, signs). |
+| Look | PS1 by default, one palette at a time (Golden hour). The header PS1 button turns the treatment off: full resolution, detail 1, no dither, outlines or vertex snap. Colours stay on the palette. The choice is saved (`tinycity.ps1`). Building colours stay natural greys, brick and wood, except where a catalogue piece already uses `paint` (European houses, signs). |
 | People | Catalogue tiles, edited in the item panel (chips, sliders, colour swatches, 🎲 New look). Seed 0 is that tile's starter. Any other seed rerolls hair, clothes, colours, build and a little of the size with `mulberry32`, and keeps the tile's body type. Explicit edits sit on top of the seed until the next New look. |
 | Faces | No eyes, mouth, nose or brows on people. No faces on cats. Glasses, masks and beards stay: they are accessories, not faces. |
 | Buildings | Japanese buildings and the European houses stay. Painted shop windows stay, because they are part of the building. Furnished interior rooms (office, diner, clinic, and the rest) are not in this app. |
@@ -38,6 +38,9 @@ renderer. People stay faceless. Cats stay faceless.
    parameter and the seed.
 3. **Tiny Catalogue.** Title, README and `package.json` name. GitHub Actions
    workflow deploys the Vite build to Pages on push to `main`.
+4. **PS1 on/off.** Header button next to Colours. On is the existing look.
+   Off is a smooth full-resolution render at geometry detail 1. The open
+   item rebuilds and the thumbnails redraw, without reloading the page.
 
 The asset library was copied from Tiny City Builder (`thetinywisdom/character-creator`).
 That history (town generation, crowd, weather, interactions) is not in this
