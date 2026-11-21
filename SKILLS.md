@@ -112,13 +112,19 @@ off without reshuffling the buildings.
 
 They are assembled with `createAsset` from items already in the catalogue.
 The park playground is the existing `buildPlayground` builder. The only new
-geometry is ground: paving, a road, kerbs, and the shotengai's arcade bays
-(posts and short roof panels). Colours are existing roles and palette
+geometry is ground: the 32 m block shell, paving, a road and kerbs. The
+shotengai street is open to the sky. Colours are existing roles and palette
 swatches. People stay faceless. Cats are built with `face: 'None'`.
 
+Every area is one 32 × 32 m block centred on the origin. `userData.block`
+is `{ id, footprint, edges }` with `edges.n/e/s/w` of `street` (3 m) or
+`sidewalk` (1.5 m). +z is north. `createAreaBlock(id, params, style)` builds
+one. See README for laying them on a grid.
+
 Nobori and birds move because `tickProps` already walks the item. People
-and cats set `userData.tick`, which `tickProps` calls, so a crowd can idle
-or walk in place and a cat can breathe in its sit, loaf or sleep pose.
+and cats set `userData.tick` on a carrier group, which `tickProps` calls.
+The walk pose rewrites the rig position, so the carrier is what stands on
+the ground. Walkers each ping-pong on their own segment of the open ground.
 
 The preview poses the rig with `poseGait` (`animation` is `New` or `Classic`,
 `walkStyle` / `runStyle` pick the tune). Idle is Still: the person stands

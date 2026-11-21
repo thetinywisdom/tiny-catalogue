@@ -13,13 +13,15 @@ import { createAsset } from './index.js';
 // the same seed rebuilds the same layout, and 🎲 New look only changes the seed.
 //
 // Everything placed is an existing catalogue asset (createAsset) or an existing
-// builder (the park playground). The only new geometry is ground: paving slabs,
-// a road, kerbs, and the shotengai's arcade frame (posts and a split roof).
-// Those use palette colours already on a role. No new swatches, no new props.
+// builder (the park playground). The only new geometry is ground: a 32 m block
+// shell, paving, a road and kerbs. Those use palette colours already on a role.
+// No new swatches, no new props. The shotengai has no roof over the street.
 //
 // People stay faceless (the human builder draws none). Cats are built with
 // face: 'None' by createAsset. Nobori and birds move because tickProps already
-// walks the item. People and cats set userData.tick, which tickProps calls.
+// walks the item. People and cats set userData.tick on a carrier group, which
+// tickProps calls. The walk pose rewrites the rig's own position, so the
+// carrier is what stays on the ground.
 //
 // Substitutions, where the brief named something the catalogue does not have:
 // - Station building: there is no station exterior (station.room is not in
@@ -30,6 +32,15 @@ import { createAsset } from './index.js';
 // - AC units: not a standalone prop. Back dressing (and the buildings' own
 //   roof units) already attach them to Japanese backs.
 // - Torii: not its own card. It is part of building.shrine.
+
+// One grid for every area. +z is north. A street edge is a 3 m strip and a
+// sidewalk edge is 1.5 m, both flush with the 32 m footprint, so two blocks
+// with the same edge type meet at the same height and make a full road (6 m)
+// or a full sidewalk (3 m).
+export const BLOCK_SIZE = 32;
+const HALF = BLOCK_SIZE / 2;
+const EDGE_W = { street: 3, sidewalk: 1.5 };
+const EDGE_TOP = { street: 0.04, sidewalk: 0.06 };
 
 const ADULTS = ['human.man', 'human.woman', 'human.salaryman', 'human.grandpa', 'human.grandma'];
 const KIDS = ['human.boy', 'human.girl', 'human.schoolboy', 'human.schoolgirl'];
@@ -111,26 +122,46 @@ function follow(obj, step) {
   };
 }
 
-function addPerson(g, cols, style, rng, x, z, rot, walking, pool) {
+// poseIK writes body.position to about (0, y, 0) every frame, and poseCat
+// writes the cat rig's x back to 0. Posing the object that was placed in the
+// area snaps every figure onto one point. The carrier keeps the ground
+// position; the rig only moves inside it.
+function addPersonAt(g, cols, style, rng, x, z, path, pool) {
   const person = createAsset(pick(rng, pool), { seed: 1 + Math.floor(rng() * 9000) }, style);
   const phase = rng() * Math.PI * 2;
   const gait = createGait(phase);
   gait.t = phase;
-  // Keep the idle glance and the walk cycle on the seed. poseIK would otherwise
-  // draw Math.random for the first step and the look-around.
   gait.cyc = phase;
   gait.nextLook = 1e9;
   gait.lookTo = 0;
-  const speed = walking ? WALK_SPEED * (0.82 + rng() * 0.28) : 0;
-  follow(person, (dt) => {
+  const walking = !!(path && path.hi - path.lo >= 2.4);
+  const speed = walking ? WALK_SPEED * (0.72 + rng() * 0.2) : 0;
+  if (path) path.dir = rng() < 0.5 ? -1 : 1;
+  const carrier = new THREE.Group();
+  carrier.add(person);
+  follow(carrier, (dt) => {
     setGaitEngine('New');
     stepGait(gait, dt, speed, TUNE);
     poseGait(person, gait, 'natural', TUNE);
+    if (!walking) return;
+    path.pos += path.dir * speed * dt;
+    if (path.pos > path.hi) { path.pos = path.hi; path.dir = -1; }
+    if (path.pos < path.lo) { path.pos = path.lo; path.dir = 1; }
+    if (path.axis === 'x') {
+      carrier.position.x = path.pos;
+      carrier.rotation.y = path.dir > 0 ? Math.PI / 2 : -Math.PI / 2;
+    } else {
+      carrier.position.z = path.pos;
+      carrier.rotation.y = path.dir > 0 ? 0 : Math.PI;
+    }
   });
-  put(g, cols, person, x, z, rot);
+  const rot = walking
+    ? (path.axis === 'x' ? (path.dir > 0 ? Math.PI / 2 : -Math.PI / 2) : (path.dir > 0 ? 0 : Math.PI))
+    : rng() * Math.PI * 2;
+  put(g, cols, carrier, x, z, rot);
 }
 
-function addCat(g, cols, style, rng, x, z, rot) {
+function addCatAt(g, cols, style, rng, x, z) {
   const cat = createAsset('animal.cat', {
     variant: pick(rng, ['Housecat', 'Housecat', 'Kitten', 'Chonk']),
     color: pick(rng, FUR),
@@ -139,17 +170,137 @@ function addCat(g, cols, style, rng, x, z, rot) {
     earType: pick(rng, CAT_EARS),
     coat: rng() < 0.82 ? 'Short' : 'Long',
   }, style);
-  const body = cat.getObjectByName('cat') ?? cat;
+  const rig = cat.getObjectByName('cat') ?? cat;
   const gait = createCatGait(rng() * 6);
   gait.t = rng() * 8;
   gait.pose = pick(rng, ['sit', 'loaf', 'loaf', 'sleep', 'sit']);
   gait.poseW = 1;
-  poseCat(body, gait);
-  follow(cat, (dt) => {
+  poseCat(rig, gait);
+  const carrier = new THREE.Group();
+  carrier.add(cat);
+  follow(carrier, (dt) => {
     stepCatGait(gait, dt, 0);
-    poseCat(body, gait);
+    poseCat(rig, gait);
   });
-  put(g, cols, cat, x, z, rot);
+  put(g, cols, carrier, x, z, rng() * Math.PI * 2);
+}
+
+function inRects(rects, x, z, margin) {
+  return rects.some((r) => x >= r.x0 + margin && x <= r.x1 - margin && z >= r.z0 + margin && z <= r.z1 - margin);
+}
+
+function hits(cols, x, z, pad) {
+  return cols.some((c) => Math.abs(x - c.x) < c.hw + pad && Math.abs(z - c.z) < c.hd + pad);
+}
+
+function spots(rng, rects, cols, n, sep, pad, taken) {
+  const out = [];
+  const held = taken.map((t) => t.slice());
+  const step = Math.max(0.7, sep * 0.85);
+  const cands = [];
+  for (const r of rects) {
+    for (let x = r.x0 + pad; x <= r.x1 - pad + 0.01; x += step) {
+      for (let z = r.z0 + pad; z <= r.z1 - pad + 0.01; z += step) {
+        cands.push([x + (rng() - 0.5) * step * 0.5, z + (rng() - 0.5) * step * 0.5]);
+      }
+    }
+  }
+  for (let i = cands.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    const swap = cands[i];
+    cands[i] = cands[j];
+    cands[j] = swap;
+  }
+  for (const [x, z] of cands) {
+    if (out.length >= n) break;
+    if (!inRects(rects, x, z, 0.15)) continue;
+    if (hits(cols, x, z, pad)) continue;
+    if (held.some(([px, pz, s]) => (x - px) ** 2 + (z - pz) ** 2 < s * s)) continue;
+    out.push([x, z]);
+    held.push([x, z, sep]);
+  }
+  return out;
+}
+
+function clearRun(cols, rects, x, z, axis, pad) {
+  const step = 0.3;
+  let lo = axis === 'x' ? x : z;
+  let hi = lo;
+  const fixed = axis === 'x' ? z : x;
+  const ok = (v) => {
+    const px = axis === 'x' ? v : fixed;
+    const pz = axis === 'x' ? fixed : v;
+    return inRects(rects, px, pz, 0.12) && !hits(cols, px, pz, pad);
+  };
+  let guard = 0;
+  while (ok(lo - step) && hi - (lo - step) < 18 && guard++ < 80) lo -= step;
+  guard = 0;
+  while (ok(hi + step) && (hi + step) - lo < 18 && guard++ < 80) hi += step;
+  return { lo, hi };
+}
+
+// One placement for every area. Figures land on `rects`, clear of `cols`,
+// at least `sep` apart. A walker ping-pongs on a private segment of that
+// rect and stops short of anyone else, so paths never meet at one point.
+function crowd(g, cols, style, rngP, rngC, { rects, people = 0, cats = 0, axis = 'x', pool = CROWD }) {
+  const catSpots = cats > 0 ? spots(rngC, rects, cols, cats, 0.6, 0.32, []) : [];
+  for (const [x, z] of catSpots) addCatAt(g, cols, style, rngC, x, z);
+  const catTaken = catSpots.map(([x, z]) => [x, z, 0.85]);
+  const peopleSpots = people > 0 ? spots(rngP, rects, cols, people, 1, 0.45, catTaken) : [];
+  // A walker stays on one lane. The segment is cut back so it never comes
+  // within 1 m of another person or 0.8 m of a cat, including while moving.
+  const keepClear = (run, spot, others, gap) => {
+    let { lo, hi } = run;
+    const fixed = axis === 'x' ? spot[1] : spot[0];
+    const start = axis === 'x' ? spot[0] : spot[1];
+    for (const o of others) {
+      const of = axis === 'x' ? o[1] : o[0];
+      const om = axis === 'x' ? o[0] : o[1];
+      const side = Math.abs(of - fixed);
+      if (side >= gap) continue;
+      const along = Math.sqrt(Math.max(0, gap * gap - side * side));
+      if (start <= om) hi = Math.min(hi, om - along);
+      else lo = Math.max(lo, om + along);
+    }
+    return { lo, hi };
+  };
+  peopleSpots.forEach((spot) => {
+    const wantWalk = rngP() < 0.62;
+    const others = peopleSpots.filter((s) => s !== spot);
+    const blocked = others.map(([x, z]) => ({ x, z, hw: 0.5, hd: 0.5 }))
+      .concat(catSpots.map(([x, z]) => ({ x, z, hw: 0.35, hd: 0.35 })));
+    const run = keepClear(
+      clearRun(cols.concat(blocked), rects, spot[0], spot[1], axis, 0.28),
+      spot,
+      others.concat(catSpots),
+      1,
+    );
+    const path = wantWalk && run.hi - run.lo >= 2.4 && run.lo <= (axis === 'x' ? spot[0] : spot[1]) && (axis === 'x' ? spot[0] : spot[1]) <= run.hi
+      ? { axis, lo: run.lo, hi: run.hi, pos: axis === 'x' ? spot[0] : spot[1], dir: 1 }
+      : null;
+    addPersonAt(g, cols, style, rngP, spot[0], spot[1], path, pool);
+  });
+}
+
+function blockBase(g, style, role, color) {
+  slab(g, style, BLOCK_SIZE, 0.04, BLOCK_SIZE, role, color, 0, 0.02, 0);
+}
+
+function blockEdges(g, style, edges) {
+  const matOf = (kind) => (kind === 'street'
+    ? style.material('road')
+    : style.material('sidewalk', paletteHex('Sand')));
+  const draw = (kind, axis, sign) => {
+    const w = EDGE_W[kind];
+    const h = 0.08;
+    const y = EDGE_TOP[kind] - h / 2;
+    const mat = matOf(kind);
+    if (axis === 'z') g.add(tiledBox(BLOCK_SIZE, h, w, mat, [0, y, sign * (HALF - w / 2)], 4));
+    else g.add(tiledBox(w, h, BLOCK_SIZE, mat, [sign * (HALF - w / 2), y, 0], 4));
+  };
+  const sides = [['s', 'z', -1], ['n', 'z', 1], ['w', 'x', -1], ['e', 'x', 1]];
+  for (const [key, axis, sign] of sides) if (edges[key] === 'sidewalk') draw('sidewalk', axis, sign);
+  for (const [key, axis, sign] of sides) if (edges[key] === 'street') draw('street', axis, sign);
 }
 
 function addTree(g, cols, style, rng, variant, x, z, seed) {
@@ -157,24 +308,6 @@ function addTree(g, cols, style, rng, variant, x, z, seed) {
   const s = 0.72 + rng() * 0.28;
   t.scale.setScalar(s);
   put(g, cols, t, x, z, rng() * Math.PI * 2);
-}
-
-// Posts and short roof bays over a shopping street. The bays run across the
-// street with gaps between them, so the cover reads from the end of the
-// arcade and the flags and people still show.
-function arcade(g, style, length, halfW, y) {
-  const post = style.material('metal', paletteHex('Slate'));
-  const beam = style.material('metal', paletteHex('Light gray'));
-  const roof = style.material('paint', paletteHex('Paper'));
-  const n = Math.max(3, Math.round(length / 3.6));
-  const bay = length / n;
-  for (let i = 0; i < n; i++) {
-    const x = -length / 2 + bay * (i + 0.5);
-    for (const s of [-1, 1]) g.add(box(0.1, y, 0.1, post, [x, y / 2, s * halfW]));
-    g.add(box(0.1, 0.08, halfW * 2, beam, [x, y, 0]));
-    g.add(box(bay * 0.7, 0.06, halfW * 1.7, roof, [x, y + 0.07, 0]));
-  }
-  for (const s of [-1, 1]) g.add(box(length, 0.08, 0.1, beam, [0, y, s * halfW]));
 }
 
 const SHOP_ROW = [
@@ -199,17 +332,15 @@ function shotengai(p, style) {
   const rng = stream(p.seed, 1);
   const people = stream(p.seed, 2);
   const cats = stream(p.seed, 3);
-  const W = 30;
-  const D = 22;
-  slab(g, style, W, 0.04, D, 'sidewalk', paletteHex('Sand'), 0, 0.02, 0);
-  slab(g, style, W - 1.2, 0.02, 3.4, 'concrete', paletteHex('Stone'), 0, 0.045, 0);
+  const edges = { n: 'sidewalk', e: 'street', s: 'sidewalk', w: 'street' };
+  blockBase(g, style, 'sidewalk', paletteHex('Sand'));
+  slab(g, style, 24, 0.02, 3.4, 'concrete', paletteHex('Stone'), 0, 0.045, 0);
 
   const perSide = band(p.Density, 2, 3, 4);
-  const span = W - 4.5;
+  const span = 22;
   const lotW = Math.min(7.6, span / perSide - 0.7);
   const lotD = 7.2;
   // Shop fronts sit about 1.9 m inside the +z edge of the lot (shops.js body).
-  // Keep the facades far enough apart that awnings clear the arcade.
   const face = lotD / 2 - 1.9;
   const zRow = 3.5 + face;
   const xs = spread(perSide, span);
@@ -221,8 +352,6 @@ function shotengai(p, style) {
       addBuilding(g, cols, style, shop.id, salt(p.seed, 10 + k * 20 + i), shop.w ?? lotW, shop.d ?? lotD, x, z, rot, extra);
     }
   });
-  arcade(g, style, span - 1, 1.55, 3.85);
-
   const flags = band(p.Density, 2, 4, 6);
   spread(flags, span - 1).forEach((x, i) => {
     const south = i % 2 === 0;
@@ -247,18 +376,13 @@ function shotengai(p, style) {
   }
   put(g, cols, createAsset('prop.trashBin', { variant: 'Round bin' }, style), span * 0.42, 1.4, 0);
 
-  if (p.People !== 'Off') {
-    const n = band(p.Density, 3, 5, 7);
-    spread(n, span - 4).forEach((x, i) => {
-      const along = people() < 0.62;
-      const rot = along ? (i % 2 ? Math.PI / 2 : -Math.PI / 2) : (people() < 0.5 ? 0 : Math.PI);
-      addPerson(g, cols, style, people, x + (people() - 0.5) * 0.3, (people() - 0.5) * 0.9, rot, along, CROWD);
-    });
-  }
-  if (p.Cats !== 'Off') {
-    const n = band(p.Density, 1, 1, 2);
-    spread(n, 6).forEach((x, i) => addCat(g, cols, style, cats, x, i % 2 ? 1.95 : -1.95, cats() * 6));
-  }
+  crowd(g, cols, style, people, cats, {
+    rects: [{ x0: -10, x1: 10, z0: -1.05, z1: 1.05 }],
+    people: p.People === 'Off' ? 0 : band(p.Density, 3, 5, 7),
+    cats: p.Cats === 'Off' ? 0 : band(p.Density, 1, 2, 3),
+    axis: 'x',
+  });
+  blockEdges(g, style, edges);
   return finish();
 }
 
@@ -267,15 +391,14 @@ function lane(p, style) {
   const rng = stream(p.seed, 11);
   const people = stream(p.seed, 12);
   const cats = stream(p.seed, 13);
-  const W = 30;
-  const D = 28;
-  slab(g, style, W, 0.04, D, 'grass', null, 0, 0.015, 0);
-  slab(g, style, W, 0.03, 4.4, 'road', null, 0, 0.03, 0);
-  for (const s of [-1, 1]) slab(g, style, W, 0.025, 1.7, 'sidewalk', paletteHex('Sand'), 0, 0.04, s * 3.15);
-  for (const s of [-1, 1]) kerb(g, style, 0, s * 2.22, W - 0.8, true);
+  const edges = { n: 'sidewalk', e: 'street', s: 'sidewalk', w: 'street' };
+  blockBase(g, style, 'grass', null);
+  slab(g, style, 26, 0.03, 4.4, 'road', null, 0, 0.03, 0);
+  for (const s of [-1, 1]) slab(g, style, 26, 0.025, 1.7, 'sidewalk', paletteHex('Sand'), 0, 0.04, s * 3.15);
+  for (const s of [-1, 1]) kerb(g, style, 0, s * 2.22, 24, true);
 
   const perSide = band(p.Density, 2, 3, 3);
-  const span = W - 3;
+  const span = 22;
   const lotW = Math.min(9, span / perSide - 0.55);
   const lotD = 10;
   // The house wall sits on the street edge of the lot (buildings.js house).
@@ -317,21 +440,21 @@ function lane(p, style) {
   });
 
   const rails = band(p.Density, 1, 2, 3);
-  spread(rails, W - 8).forEach((x, i) => {
+  spread(rails, 20).forEach((x, i) => {
     put(g, cols, createAsset('prop.bollard', { variant: 'Guard rail' }, style), x, i % 2 ? 2.05 : -2.05, 0);
   });
 
-  if (p.People !== 'Off') {
-    const n = band(p.Density, 1, 2, 4);
-    spread(n, span * 0.7).forEach((x, i) => {
-      const south = i % 2 === 0;
-      addPerson(g, cols, style, people, x, south ? -2.7 : 2.7, people() < 0.5 ? Math.PI / 2 : -Math.PI / 2, people() < 0.45, [...ADULTS, 'human.boy', 'human.girl']);
-    });
-  }
-  if (p.Cats !== 'Off') {
-    const n = band(p.Density, 1, 1, 2);
-    spread(n, 8).forEach((x, i) => addCat(g, cols, style, cats, x, i % 2 ? 2.85 : -2.85, cats() * 6));
-  }
+  crowd(g, cols, style, people, cats, {
+    rects: [
+      { x0: -10, x1: 10, z0: 2.45, z1: 3.35 },
+      { x0: -10, x1: 10, z0: -3.35, z1: -2.45 },
+    ],
+    people: p.People === 'Off' ? 0 : band(p.Density, 2, 4, 6),
+    cats: p.Cats === 'Off' ? 0 : band(p.Density, 1, 2, 3),
+    axis: 'x',
+    pool: [...ADULTS, 'human.boy', 'human.girl'],
+  });
+  blockEdges(g, style, edges);
   return finish();
 }
 
@@ -340,12 +463,11 @@ function station(p, style) {
   const rng = stream(p.seed, 21);
   const people = stream(p.seed, 22);
   const cats = stream(p.seed, 23);
-  const W = 32;
-  const D = 28;
-  slab(g, style, W, 0.04, D, 'sidewalk', paletteHex('Stone'), 0, 0.015, 0);
-  slab(g, style, W, 0.03, 5.6, 'road', null, 0, 0.03, 10.4);
-  kerb(g, style, 0, 7.55, W - 1, true);
-  kerb(g, style, 0, 13.25, W - 1, true);
+  const edges = { n: 'sidewalk', e: 'street', s: 'sidewalk', w: 'street' };
+  blockBase(g, style, 'sidewalk', paletteHex('Stone'));
+  slab(g, style, 26, 0.03, 5.6, 'road', null, 0, 0.03, 10.2);
+  kerb(g, style, 0, 7.35, 24, true);
+  kerb(g, style, 0, 13.05, 24, true);
 
   // Post office stands in for a station building. See the file header.
   addBuilding(g, cols, style, 'building.postOffice', salt(p.seed, 1), 16, 11, 0, -6.6, 0);
@@ -363,9 +485,9 @@ function station(p, style) {
   spread(taxis, 5 + taxis * 2.4).forEach((x) => {
     put(g, cols, createAsset('vehicle.car', { variant: 'Taxi', color: 'Navy' }, style), 5.2 + x, 8.7, Math.PI / 2);
   });
-  put(g, cols, createAsset('vehicle.bus', { variant: 'City bus' }, style), -5.4, 12.05, Math.PI / 2);
+  put(g, cols, createAsset('vehicle.bus', { variant: 'City bus' }, style), -4.2, 11.5, Math.PI / 2);
   if (p.Density === 'Busy') {
-    put(g, cols, createAsset('vehicle.car', { variant: 'Kei car', color: pick(rng, ['White', 'Gray', 'Blue']) }, style), 12.2, 11.6, -Math.PI / 2);
+    put(g, cols, createAsset('vehicle.car', { variant: 'Kei car', color: pick(rng, ['White', 'Gray', 'Blue']) }, style), 10.5, 11.4, -Math.PI / 2);
   }
 
   const benches = band(p.Density, 2, 3, 4);
@@ -373,21 +495,14 @@ function station(p, style) {
     put(g, cols, createAsset('prop.bench', { variant: i % 2 ? 'Backless' : 'Park bench' }, style), x, 1.6 + (i % 2) * 2.2, 0);
   });
 
-  if (p.People !== 'Off') {
-    const n = band(p.Density, 3, 5, 8);
-    spread(n, 18).forEach((x, i) => {
-      const waiting = people() < 0.55;
-      addPerson(
-        g, cols, style, people,
-        x + (people() - 0.5) * 0.4,
-        0.2 + people() * 4.2,
-        waiting ? 0 : (people() < 0.5 ? Math.PI / 2 : -Math.PI / 2),
-        !waiting,
-        ['human.salaryman', 'human.woman', 'human.man', 'human.grandma', 'human.schoolgirl', 'human.grandpa'],
-      );
-    });
-  }
-  if (p.Cats !== 'Off') addCat(g, cols, style, cats, -10.5, 4.6, cats() * 6);
+  crowd(g, cols, style, people, cats, {
+    rects: [{ x0: -8.5, x1: 8.5, z0: 0.4, z1: 6.2 }],
+    people: p.People === 'Off' ? 0 : band(p.Density, 3, 5, 8),
+    cats: p.Cats === 'Off' ? 0 : band(p.Density, 1, 2, 3),
+    axis: 'x',
+    pool: ['human.salaryman', 'human.woman', 'human.man', 'human.grandma', 'human.schoolgirl', 'human.grandpa'],
+  });
+  blockEdges(g, style, edges);
   return finish();
 }
 
@@ -396,26 +511,26 @@ function shrineCorner(p, style) {
   const rng = stream(p.seed, 31);
   const people = stream(p.seed, 32);
   const cats = stream(p.seed, 33);
-  const W = 34;
-  const D = 28;
-  slab(g, style, W, 0.04, D, 'grass', null, 0, 0.015, 0);
+  const edges = { n: 'sidewalk', e: 'sidewalk', s: 'sidewalk', w: 'sidewalk' };
+  blockBase(g, style, 'grass', null);
   // A stone path out of the shrine precinct into the park.
   slab(g, style, 2.2, 0.03, 12, 'concrete', paletteHex('Stone'), -7.2, 0.04, 6.2);
   slab(g, style, 14, 0.03, 2.2, 'concrete', paletteHex('Stone'), 0.5, 0.045, 8.6);
 
-  addBuilding(g, cols, style, 'building.shrine', salt(p.seed, 1), 15, 16, -7.4, -4.2, 0);
+  addBuilding(g, cols, style, 'building.shrine', salt(p.seed, 1), 14, 14, -6.2, -3.2, 0);
 
   const play = new THREE.Group();
   buildPlayground(play, style);
-  play.position.set(8.2, 0, 1.2);
+  play.position.set(7.4, 0, 1.4);
   g.add(play);
+  cols.push({ x: 7.4, z: 1.4, hw: 4.6, hd: 4.2 });
   // The same sandbox the park puts beside the slide, in playground-local space.
   play.add(box(2.6, 0.22, 2.4, style.material('wood'), [-2.4, 0.11, 2.8]));
   play.add(box(2.3, 0.16, 2.1, style.material('sidewalk', paletteHex('Sand')), [-2.4, 0.2, 2.8]));
 
   const grove = band(p.Density, 4, 6, 8);
   const kinds = ['Zelkova', 'Pine', 'Black pine', 'Cherry blossom', 'Japanese maple', 'Old giant', 'Ginkgo'];
-  const spots = [[12.5, -10], [4, -10.5], [14.2, -4], [-14.5, 8], [14.5, 8.5], [-1, -11], [6, 10.5], [-14, -10]];
+  const spots = [[11.5, -9], [3.2, -10], [13, -3.5], [-13, 7.5], [13, 8], [-1.5, -11], [5.5, 10.5], [-12.5, -9.5]];
   spots.slice(0, grove).forEach((spot, i) => {
     addTree(g, cols, style, rng, kinds[i % kinds.length], spot[0], spot[1], salt(p.seed, 60 + i));
   });
@@ -445,17 +560,17 @@ function shrineCorner(p, style) {
     }, style), x, z, rng() * 6);
   });
 
-  if (p.People !== 'Off') {
-    const n = band(p.Density, 1, 3, 5);
-    [[-1.5, 7.2], [6.8, 5.2], [2.4, 9.8], [12.4, 4.8], [-4.2, 9.2]].slice(0, n).forEach(([x, z], i) => {
-      const walking = people() < 0.4;
-      addPerson(g, cols, style, people, x, z, walking ? Math.PI / 2 : people() * 6, walking, i === 0 ? KIDS : CROWD);
-    });
-  }
-  if (p.Cats !== 'Off') {
-    const n = band(p.Density, 1, 1, 2);
-    [[13.6, -8.2], [0.4, 11]].slice(0, n).forEach(([x, z]) => addCat(g, cols, style, cats, x, z, cats() * 6));
-  }
+  crowd(g, cols, style, people, cats, {
+    rects: [
+      { x0: -1, x1: 6, z0: 6.4, z1: 12.5 },
+      { x0: 11.2, x1: 14, z0: -7, z1: 8 },
+    ],
+    people: p.People === 'Off' ? 0 : band(p.Density, 2, 4, 6),
+    cats: p.Cats === 'Off' ? 0 : band(p.Density, 1, 2, 3),
+    axis: 'x',
+    pool: [...KIDS, ...ADULTS],
+  });
+  blockEdges(g, style, edges);
   return finish();
 }
 
@@ -464,55 +579,54 @@ function oldSquare(p, style) {
   const rng = stream(p.seed, 41);
   const people = stream(p.seed, 42);
   const cats = stream(p.seed, 43);
-  const W = 38;
-  const D = 38;
-  slab(g, style, W, 0.04, D, 'concrete', paletteHex('Stone'), 0, 0.015, 0);
-  const pave = createAsset('ground.paving', { w: 12, d: 12, color: paletteHex('Light gray') }, style);
+  const edges = { n: 'sidewalk', e: 'sidewalk', s: 'sidewalk', w: 'sidewalk' };
+  blockBase(g, style, 'concrete', paletteHex('Stone'));
+  const pave = createAsset('ground.paving', { w: 9, d: 9, color: paletteHex('Light gray') }, style);
   pave.position.y = 0.02;
   g.add(pave);
-  kerb(g, style, 0, 6.15, 12.4, true);
-  kerb(g, style, 0, -6.15, 12.4, true);
-  kerb(g, style, 6.15, 0, 12.4, false);
-  kerb(g, style, -6.15, 0, 12.4, false);
+  kerb(g, style, 0, 4.6, 9.4, true);
+  kerb(g, style, 0, -4.6, 9.4, true);
+  kerb(g, style, 4.6, 0, 9.4, false);
+  kerb(g, style, -4.6, 0, 9.4, false);
 
-  const lotD = 9;
-  const zRow = 6.4 + lotD / 2;
-  const pair = 6.6;
-  addBuilding(g, cols, style, 'building.tudorCottage', salt(p.seed, 1), 8.6, lotD, -pair, -zRow, 0);
-  addBuilding(g, cols, style, 'building.frenchCountryHouse', salt(p.seed, 2), 8.6, lotD, pair, -zRow, 0);
-  addBuilding(g, cols, style, 'building.scandinavianHouse', salt(p.seed, 3), 8.6, lotD, -pair, zRow, Math.PI);
-  addBuilding(g, cols, style, 'building.mediterraneanVilla', salt(p.seed, 4), 9.2, lotD, pair, zRow, Math.PI);
-  addBuilding(g, cols, style, 'building.dutchCanalHouse', salt(p.seed, 5), 7, 8.5, 8 + 4.25, 0, -Math.PI / 2);
-  addBuilding(g, cols, style, 'building.stoneChapel', salt(p.seed, 6), 8.2, 11, -(8 + 5.5), 0, Math.PI / 2);
+  const lotD = 7.2;
+  const zRow = 4.6 + lotD / 2;
+  const pair = 4.6;
+  addBuilding(g, cols, style, 'building.tudorCottage', salt(p.seed, 1), 7.2, lotD, -pair, -zRow, 0);
+  addBuilding(g, cols, style, 'building.frenchCountryHouse', salt(p.seed, 2), 7.2, lotD, pair, -zRow, 0);
+  addBuilding(g, cols, style, 'building.scandinavianHouse', salt(p.seed, 3), 7.2, lotD, -pair, zRow, Math.PI);
+  addBuilding(g, cols, style, 'building.mediterraneanVilla', salt(p.seed, 4), 7.6, lotD, pair, zRow, Math.PI);
+  addBuilding(g, cols, style, 'building.dutchCanalHouse', salt(p.seed, 5), 6.4, 7.2, 9.4, 0, -Math.PI / 2);
+  addBuilding(g, cols, style, 'building.stoneChapel', salt(p.seed, 6), 7, 7.6, -9.6, 0, Math.PI / 2);
 
   const trees = band(p.Density, 2, 4, 6);
-  [[-3.6, -3.6, 'Oak'], [3.6, 3.6, 'Lollipop'], [-3.6, 3.6, 'Camphor'], [3.6, -3.6, 'Oak'], [0, -3.8, 'Lollipop'], [0, 3.8, 'Camphor']]
+  [[-2.2, -2.2, 'Oak'], [2.2, 2.2, 'Lollipop'], [-2.2, 2.2, 'Camphor'], [2.2, -2.2, 'Oak'], [0, -2.4, 'Lollipop'], [0, 2.4, 'Camphor']]
     .slice(0, trees)
     .forEach(([x, z, variant], i) => addTree(g, cols, style, rng, variant, x, z, salt(p.seed, 70 + i)));
 
   const benches = band(p.Density, 2, 4, 4);
-  [[-4.2, 0, Math.PI / 2], [4.2, 0, -Math.PI / 2], [0, -4.2, 0], [0, 4.2, Math.PI]].slice(0, benches).forEach(([x, z, rot]) => {
+  [[-2.8, 0, Math.PI / 2], [2.8, 0, -Math.PI / 2], [0, -2.8, 0], [0, 2.8, Math.PI]].slice(0, benches).forEach(([x, z, rot]) => {
     put(g, cols, createAsset('prop.bench', { variant: 'Park bench' }, style), x, z, rot);
   });
-  put(g, cols, createAsset('nature.flowerBed', { variant: 'Mixed', seed: salt(p.seed, 12) }, style), -5.2, -5.2, 0);
+  put(g, cols, createAsset('nature.flowerBed', { variant: 'Mixed', seed: salt(p.seed, 12) }, style), -3.6, -3.6, 0);
   if (p.Density !== 'Sparse') {
-    put(g, cols, createAsset('prop.planter', { variant: 'Planter box' }, style), 5.2, 5.2, 0);
-    put(g, cols, createAsset('prop.streetLamp', { variant: 'Single' }, style), -5.4, 5.4, 0);
+    put(g, cols, createAsset('prop.planter', { variant: 'Planter box' }, style), 3.6, 3.6, 0);
+    put(g, cols, createAsset('prop.streetLamp', { variant: 'Single' }, style), -3.8, 3.8, 0);
   }
 
   const pigeons = band(p.Density, 3, 5, 7);
-  spread(pigeons, 8).forEach((x, i) => {
-    put(g, cols, createAsset('animal.bird', { variant: 'Pigeon', seed: salt(p.seed, 150 + i) }, style), x, (i % 2 ? 1 : -1) * (1.2 + (i % 3)), rng() * 6);
+  spread(pigeons, 6).forEach((x, i) => {
+    put(g, cols, createAsset('animal.bird', { variant: 'Pigeon', seed: salt(p.seed, 150 + i) }, style), x, (i % 2 ? 0.8 : -0.8) * (1 + (i % 2)), rng() * 6);
   });
 
-  if (p.People !== 'Off') {
-    const n = band(p.Density, 2, 4, 6);
-    spread(n, 8).forEach((x, i) => {
-      const walking = people() < 0.5;
-      addPerson(g, cols, style, people, x, (i % 2 ? 2.2 : -2.2), walking ? (i % 2 ? 0 : Math.PI) : people() * 6, walking, ADULTS);
-    });
-  }
-  if (p.Cats !== 'Off') addCat(g, cols, style, cats, 4.6, -1.4, cats() * 6);
+  crowd(g, cols, style, people, cats, {
+    rects: [{ x0: -2.4, x1: 2.4, z0: -2.4, z1: 2.4 }],
+    people: p.People === 'Off' ? 0 : band(p.Density, 2, 4, 5),
+    cats: p.Cats === 'Off' ? 0 : band(p.Density, 1, 2, 2),
+    axis: 'x',
+    pool: ADULTS,
+  });
+  blockEdges(g, style, edges);
   return finish();
 }
 
@@ -530,13 +644,12 @@ function alley(p, style) {
   const rng = stream(p.seed, 51);
   const people = stream(p.seed, 52);
   const cats = stream(p.seed, 53);
-  const W = 26;
-  const D = 20;
-  slab(g, style, W, 0.04, D, 'concrete', paletteHex('Gray'), 0, 0.015, 0);
-  slab(g, style, W - 1, 0.02, 2.4, 'road', null, 0, 0.04, 0);
+  const edges = { n: 'sidewalk', e: 'street', s: 'sidewalk', w: 'street' };
+  blockBase(g, style, 'concrete', paletteHex('Gray'));
+  slab(g, style, 26, 0.02, 2.4, 'road', null, 0, 0.04, 0);
 
   const perSide = band(p.Density, 2, 3, 3);
-  const span = W - 2.4;
+  const span = 22;
   const xs = spread(perSide, span);
   // Back faces land just off the alley. Japanese backs sit near the -z lot edge.
   const lotFallback = 8;
@@ -574,20 +687,17 @@ function alley(p, style) {
   put(g, cols, createAsset('vehicle.scooter', { variant: 'Delivery' }, style), 1.6, -0.15, Math.PI / 2);
   if (p.Density !== 'Sparse') {
     put(g, cols, createAsset('vehicle.bicycle', { color: 'Gray' }, style), -3.2, 1.45, Math.PI / 2);
-    put(g, cols, createAsset('prop.utilityPole', { variant: 'Plain' }, style), W / 2 - 0.8, 0.2, 0);
+    put(g, cols, createAsset('prop.utilityPole', { variant: 'Plain' }, style), 12.2, 0.2, 0);
   }
 
-  if (p.People !== 'Off') {
-    const n = band(p.Density, 1, 2, 3);
-    spread(n, span * 0.6).forEach((x, i) => {
-      addPerson(g, cols, style, people, x, i % 2 ? 0.55 : -0.45, i % 2 ? Math.PI / 2 : -Math.PI / 2, people() < 0.5, ADULTS);
-    });
-  }
-  if (p.Cats !== 'Off') {
-    const n = band(p.Density, 2, 3, 5);
-    const spots = [[-6, 1.05], [-2.2, -1.15], [2.4, 1.2], [5.5, -1.05], [0.2, 1.35], [-8, -0.9]];
-    spots.slice(0, n).forEach(([x, z]) => addCat(g, cols, style, cats, x, z, cats() * 6));
-  }
+  crowd(g, cols, style, people, cats, {
+    rects: [{ x0: -9.5, x1: 9.5, z0: -0.7, z1: 0.7 }],
+    people: p.People === 'Off' ? 0 : band(p.Density, 1, 2, 3),
+    cats: p.Cats === 'Off' ? 0 : band(p.Density, 2, 3, 5),
+    axis: 'x',
+    pool: ADULTS,
+  });
+  blockEdges(g, style, edges);
   return finish();
 }
 
@@ -597,7 +707,7 @@ const OPTIONS = {
   Cats: ['On', 'Off'],
 };
 
-function area({ id, label, size, viewDir, people, cats, build }) {
+function area({ id, label, viewDir, people, cats, edges, build }) {
   return {
     id,
     label,
@@ -605,66 +715,82 @@ function area({ id, label, size, viewDir, people, cats, build }) {
     group: 'areas',
     fillFrame: true,
     viewDir,
+    edges,
     options: OPTIONS,
     params: { seed: 1, Density: 'Normal', People: people, Cats: cats },
-    size,
-    build,
+    size: [BLOCK_SIZE, BLOCK_SIZE],
+    build(p, style) {
+      const g = build(p, style);
+      g.userData.block = {
+        id,
+        footprint: [BLOCK_SIZE, BLOCK_SIZE],
+        edges: { n: edges.n, e: edges.e, s: edges.s, w: edges.w },
+      };
+      return g;
+    },
   };
+}
+
+/** One area block, centred on the origin, ready to set on a grid. */
+export function createAreaBlock(id, params, style) {
+  const area = AREA_DIORAMAS.find((a) => a.id === id);
+  if (!area) throw new Error(`Unknown area "${id}"`);
+  return area.build({ ...area.params, ...params }, style);
 }
 
 export const AREA_DIORAMAS = [
   area({
     id: 'area.shotengai',
     label: 'Shotengai',
-    size: [30, 22],
     viewDir: [1, 0.7, 0.34],
     people: 'On',
     cats: 'Off',
+    edges: { n: 'sidewalk', e: 'street', s: 'sidewalk', w: 'street' },
     build: shotengai,
   }),
   area({
     id: 'area.lane',
     label: 'Residential lane',
-    size: [30, 28],
     viewDir: [1, 0.58, 0.22],
     people: 'On',
     cats: 'On',
+    edges: { n: 'sidewalk', e: 'street', s: 'sidewalk', w: 'street' },
     build: lane,
   }),
   area({
     id: 'area.station',
     label: 'Station plaza',
-    size: [32, 28],
     viewDir: [0.7, 0.48, 1],
     people: 'On',
     cats: 'Off',
+    edges: { n: 'sidewalk', e: 'street', s: 'sidewalk', w: 'street' },
     build: station,
   }),
   area({
     id: 'area.shrine',
     label: 'Shrine corner',
-    size: [34, 28],
     viewDir: [0.82, 0.7, 1],
     people: 'On',
     cats: 'Off',
+    edges: { n: 'sidewalk', e: 'sidewalk', s: 'sidewalk', w: 'sidewalk' },
     build: shrineCorner,
   }),
   area({
     id: 'area.square',
     label: 'Old-town square',
-    size: [38, 38],
     viewDir: [0.62, 1.55, 0.62],
     people: 'On',
     cats: 'Off',
+    edges: { n: 'sidewalk', e: 'sidewalk', s: 'sidewalk', w: 'sidewalk' },
     build: oldSquare,
   }),
   area({
     id: 'area.alley',
     label: 'Back alley',
-    size: [26, 20],
     viewDir: [1, 0.72, 0.08],
     people: 'Off',
     cats: 'On',
+    edges: { n: 'sidewalk', e: 'street', s: 'sidewalk', w: 'street' },
     build: alley,
   }),
 ];

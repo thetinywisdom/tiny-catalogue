@@ -4,6 +4,7 @@ import { lightingPresets, style } from './styles/index.js';
 import { Cell } from './viewer/Cell.js';
 import { createPs1Renderer } from './render/ps1.js';
 import { ASSETS, CATALOG, createAsset } from './catalog/index.js';
+import { BLOCK_SIZE, createAreaBlock } from './catalog/areas.js';
 import { cancelThumbs, thumbInto } from './catalog/thumbs.js';
 import { SHOP_TYPES } from './city/buildings.js';
 import { human } from './subjects/human.js';
@@ -394,5 +395,28 @@ Object.assign(window, {
     /** Orbit the preview camera by `az` radians. */
     orbit: (az) => { const t = controls.target; camera.position.sub(t).applyAxisAngle(new THREE.Vector3(0, 1, 0), az).add(t); controls.update(); },
     get itemCell() { return itemCell; },
+    BLOCK_SIZE, createAreaBlock,
+    /**
+     * Lay area blocks on the grid and frame them. `layout` is
+     * [{ id, x, z, params }]. Used to check that blocks tile.
+     */
+    previewBlocks(layout) {
+      openItem(layout[0].id, layout[0].params);
+      const holder = new THREE.Group();
+      for (const spec of layout) {
+        const block = createAreaBlock(spec.id, spec.params, style);
+        block.position.set(spec.x, 0, spec.z);
+        holder.add(block);
+      }
+      itemCell.content.clear();
+      itemCell.content.add(holder);
+      const box = new THREE.Box3().setFromObject(holder);
+      itemCell.bounds.copy(box);
+      itemCell.center.copy(box.getCenter(new THREE.Vector3()));
+      itemCell.radius = box.getBoundingSphere(new THREE.Sphere()).radius;
+      itemCell.fitLight();
+      itemEl.hidden = true;
+      reframe = true;
+    },
   },
 });

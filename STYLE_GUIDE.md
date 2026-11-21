@@ -449,21 +449,27 @@ Not placed in the sample town. A game places a piece with `createAsset('dojo.pun
 
 ## 3e-15. Area dioramas (catalogue only)
 
-Not a walkable town. Six small places on the Areas tab, each about 20–40 m
-across, built by placing catalogue items with `createAsset`. A game places
-one with `createAsset('area.shotengai', { seed: 1 }, style)` (also
-`area.lane`, `area.station`, `area.shrine`, `area.square`, `area.alley`).
+Not a walkable town. Six places on the Areas tab, each a 32 × 32 m block
+centred on the origin, built by placing catalogue items with `createAsset`.
+A game places one with `createAsset('area.shotengai', { seed: 1 }, style)`
+(also `area.lane`, `area.station`, `area.shrine`, `area.square`,
+`area.alley`), or `createAreaBlock` from `src/catalog/areas.js`.
 
 - The same low-poly pieces as the rest of the catalogue. No new building
-  and no new prop. The ground is the exception: paving, a road strip, kerbs,
-  and the shotengai's arcade (posts and short roof bays across the street).
-  Those use a role that already exists and a palette swatch. No new swatches.
+  and no new prop. The ground is the exception: the block shell, paving, a
+  road strip and kerbs. The shotengai has no roof over the street. Colours
+  are an existing role and a palette swatch. No new swatches.
+- Each edge is a sidewalk (1.5 m, top at 6 cm) or a street (3 m, top at 4 cm),
+  flush with the footprint. +z is north. Two blocks with the same edge type
+  meet on that line at the same height: two street edges make a 6 m road,
+  two sidewalk edges make a 3 m pavement.
 - `seed` is the layout. The same seed rebuilds the same places. Density
   (Sparse, Normal, Busy) changes how many shops, houses, trees or props are
-  out. People and Cats turn those on or off. People stay faceless. Cats are
-  built with no face, and they sit, loaf or sleep.
-- Nobori sway, birds peck or turn, people idle or walk in place, and cats
-  breathe, all from `tickProps`.
+  out. People and Cats turn those parts on or off. People stay faceless. Cats
+  are built with no face, and they sit, loaf or sleep. Walkers each move on
+  their own stretch of open ground and do not meet at one point.
+- Nobori sway, birds peck or turn, people idle or walk, and cats breathe,
+  all from `tickProps`.
 - There is no station building in the catalogue. The station plaza uses the
   post office, the nearest modest public building with a glass front. There
   is no crate and no AC unit you can place on its own: the delivery scooter
