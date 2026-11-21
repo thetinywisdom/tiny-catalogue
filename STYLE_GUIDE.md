@@ -447,6 +447,30 @@ Not placed in the sample town. A game places a piece with `createAsset('dojo.pun
 - `seed: 0` (or leaving it out) is the hand-made layout. Any other integer rebuilds the same arrangement every time. The dojo door, shrine and mirror stay put; the seed changes how far the one mat reaches and which extra bags, racks, dummies, benches and scrolls are out. The station gates and the platform edge stay put; the seed only moves benches and ticket machines.
 - `station.room` sets `fillFrame`. The catalogue thumbnail and the item view fit the platform's real box, so the 16 × 6 m room fills the frame.
 
+## 3e-15. Area dioramas (catalogue only)
+
+Not a walkable town. Six small places on the Areas tab, each about 20–40 m
+across, built by placing catalogue items with `createAsset`. A game places
+one with `createAsset('area.shotengai', { seed: 1 }, style)` (also
+`area.lane`, `area.station`, `area.shrine`, `area.square`, `area.alley`).
+
+- The same low-poly pieces as the rest of the catalogue. No new building
+  and no new prop. The ground is the exception: paving, a road strip, kerbs,
+  and the shotengai's arcade (posts and short roof bays across the street).
+  Those use a role that already exists and a palette swatch. No new swatches.
+- `seed` is the layout. The same seed rebuilds the same places. Density
+  (Sparse, Normal, Busy) changes how many shops, houses, trees or props are
+  out. People and Cats turn those on or off. People stay faceless. Cats are
+  built with no face, and they sit, loaf or sleep.
+- Nobori sway, birds peck or turn, people idle or walk in place, and cats
+  breathe, all from `tickProps`.
+- There is no station building in the catalogue. The station plaza uses the
+  post office, the nearest modest public building with a glass front. There
+  is no crate and no AC unit you can place on its own: the delivery scooter
+  carries boxes, bins stand by the doors, and AC units come from the
+  back-dressing pass the Japanese buildings already get. The torii belongs
+  to the shrine item.
+
 ## 3e-1. People content
 
 - **Held items** put the arm in a pose and stay upright whatever the arm does:

@@ -73,11 +73,13 @@ export function poseBird(root, time) {
   if (b.tail) b.tail.rotation.x = -peck * 0.25 + Math.sin(t * 1.1) * 0.06;
 }
 
-/** Advance every nobori and bird under `root`. Safe on a scene with neither. */
+/** Advance every nobori, bird, and area crowd under `root`. Safe on a scene with none of them. */
 export function tickProps(root, time) {
   if (!root) return;
   root.traverse((o) => {
     if (o.isMesh && o.userData.sway) swayNobori(o, time);
     if (o.userData.bird) poseBird(o, time);
+    // Area dioramas hang a per-object tick here (people idle or walk, cats breathe).
+    if (typeof o.userData.tick === 'function') o.userData.tick(time);
   });
 }
