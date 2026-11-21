@@ -113,11 +113,39 @@ export const hydrant = {
     g.add(new THREE.Mesh(new THREE.SphereGeometry(0.12, seg(10, 6), seg(6, 4), 0, Math.PI * 2, 0, Math.PI / 2), red));
     g.children.at(-1).position.y = 0.64;
     for (const sx of [-1, 1]) g.add(cyl(0.05, 0.05, 0.12, red, [sx * 0.16, 0.42, 0], { rot: [0, 0, Math.PI / 2] }));
-    // the red "消火栓" sign on a pole, as seen on Japanese streets
+    // the red "消火栓" sign on a pole, as seen on Japanese streets.
+    // The lettering is painted on the round front of the plate. A square
+    // plane would show the canvas corners (black, outside the circle).
     g.add(cyl(0.025, 0.025, 2.2, style.material('metal'), [0.35, 1.1, 0]));
-    const tex = signTexture({ lines: ['消火栓'], bg: '#d8302a', fg: '#ffffff', shape: 'circle', w: 64, h: 64 });
-    g.add(face(0.45, 0.45, style.material('signage', 0xffffff, tex), [0.35, 2.05, 0.03]));
-    g.add(disc(0.23, 0.02, red, [0.35, 2.05, 0.01]));
+    const R = 0.23;
+    const plateT = 0.02;
+    // The pole (radius 0.025 at z = 0) reaches z = 0.025. The plate's front
+    // sits just past that, so the pole stays behind the lettering.
+    const plateZ = 0.022;
+    // disc() would run this 14 through the PS1 detail multiplier and turn
+    // the sign into a hexagon. Keep the original 14 sides, and cut the
+    // decal from the same count so the two rims are the same polygon.
+    const sides = 14;
+    const plate = new THREE.Mesh(new THREE.CylinderGeometry(R, R, plateT, sides), red);
+    plate.rotation.x = Math.PI / 2;
+    plate.position.set(0.35, 2.05, plateZ);
+    g.add(plate);
+    const tex = signTexture({
+      lines: ['消火栓'], bg: '#d8302a', fg: '#ffffff', shape: 'circle', w: 64, h: 64, radiusMargin: 0.12,
+    });
+    const signMat = style.material('signage', 0xffffff, tex);
+    // Canvas corners outside the circle are transparent and would draw black
+    // on an opaque material. Drop them. The decal is coplanar with the cap,
+    // so bias its depth or the two faces flicker.
+    signMat.alphaTest = 0.05;
+    signMat.polygonOffset = true;
+    signMat.polygonOffsetFactor = -2;
+    signMat.polygonOffsetUnits = -4;
+    // Cylinder theta 0 lands at the bottom after the plate's X turn.
+    // Circle UVs run +x / +y, so 消火栓 stays upright and is not mirrored.
+    const decal = new THREE.Mesh(new THREE.CircleGeometry(R, sides, -Math.PI / 2), signMat);
+    decal.position.set(0.35, 2.05, plateZ + plateT / 2);
+    g.add(decal);
     return g;
   },
 };

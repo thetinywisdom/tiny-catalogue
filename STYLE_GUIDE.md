@@ -330,10 +330,18 @@ About one in six random characters is a child.
 
 ## 3e. Street props (Japan)
 
-- The city is **Japanese**: red post boxes, red hydrants with a 消火栓 sign,
+- The city is **Japanese**: red post boxes, red hydrants with a round 消火栓
+  sign. The plate is the original 14-sided disc (the PS1 detail cut would
+  turn it into a hexagon, so this one disc keeps every side). The lettering
+  sits on that disc, inside the rim by about a tenth of the radius, and
+  nothing draws outside the circle.
   horizontal traffic lights, inverted-triangle 止まれ stop signs, drink vending
   machines, recycling stations, white guard rails, concrete utility poles with
   overhead wires, kei cars and taxis with a roof lamp, city bikes with baskets.
+- A sandwich board (`prop.sandwichBoard`, 立て看板) is an A-frame. The two
+  panels meet on a shared top edge, each leaning out about 12° from vertical,
+  with both bottom edges on the ground, a small hinge bar along the top and a
+  thin spreader near the feet. The chalk faces outward and reads left to right.
 - Signs, post boxes, hydrants and lamps use the vivid `signage` / `light` roles
   so they stay readable; lamps and traffic-light lenses glow. Sign text is a
   small, hard-filtered canvas texture (90s console look).

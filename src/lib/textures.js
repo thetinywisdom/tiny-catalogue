@@ -11,7 +11,7 @@ const cache = new Map();
  * lines: text lines (Japanese is fine). Colours are CSS strings.
  */
 export function signTexture({ lines = [], bg = '#ffffff', fg = '#000000', border = null, borderWidth = 0.08,
-  shape = 'rect', w = 64, h = 64, font = 'bold', vertical = false }) {
+  shape = 'rect', w = 64, h = 64, font = 'bold', vertical = false, radiusMargin = 0 }) {
   const key = JSON.stringify(arguments[0]);
   if (cache.has(key)) return cache.get(key);
   // palette colours, and text that always stands out from its board: if the
@@ -49,8 +49,49 @@ export function signTexture({ lines = [], bg = '#ffffff', fg = '#000000', border
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     const n = lines.length;
-    const size = Math.floor((vertical ? w : h) * (shape === 'triangleDown' ? 0.22 : 0.62) / Math.max(n, 1));
-    g.font = `${font} ${size}px "Hiragino Sans", "Noto Sans JP", "Yu Gothic", "Meiryo", sans-serif`;
+    const family = '"Hiragino Sans", "Noto Sans JP", "Yu Gothic", "Meiryo", sans-serif';
+    let size = Math.floor((vertical ? w : h) * (shape === 'triangleDown' ? 0.22 : 0.62) / Math.max(n, 1));
+    // Circle signs: shrink the line until every ink pixel sits inside the
+    // disc, leaving radiusMargin of the radius clear on the left and right.
+    if (shape === 'circle' && radiusMargin > 0 && !vertical) {
+      const cx = w / 2, cy = h / 2;
+      const radius = Math.min(w, h) / 2;
+      const side = radiusMargin * radius;
+      const scratch = document.createElement('canvas');
+      scratch.width = w; scratch.height = h;
+      const sg = scratch.getContext('2d');
+      const fits = (sz) => {
+        sg.clearRect(0, 0, w, h);
+        sg.fillStyle = '#fff';
+        sg.textAlign = 'center';
+        sg.textBaseline = 'middle';
+        sg.font = `${font} ${sz}px ${family}`;
+        const top = h / 2 - ((n - 1) * sz * 1.1) / 2;
+        lines.forEach((t, i) => sg.fillText(t, w / 2, top + i * sz * 1.1));
+        const data = sg.getImageData(0, 0, w, h).data;
+        let minX = w, maxX = -1;
+        for (let i = 0; i < data.length; i += 4) {
+          if (data[i + 3] < 20) continue;
+          const px = (i / 4) % w, py = (i / 4 / w) | 0;
+          const dx = px + 0.5 - cx, dy = py + 0.5 - cy;
+          if (dx * dx + dy * dy > (radius - 0.5) * (radius - 0.5)) return false;
+          if (px < minX) minX = px;
+          if (px > maxX) maxX = px;
+        }
+        // About radiusMargin of the radius clear of the left and right rim.
+        if (minX < cx - radius + side) return false;
+        if (maxX > cx + radius - side - 1) return false;
+        return true;
+      };
+      let lo = 4, hi = Math.max(4, size);
+      while (lo < hi) {
+        const mid = Math.ceil((lo + hi) / 2);
+        if (fits(mid)) lo = mid;
+        else hi = mid - 1;
+      }
+      size = lo;
+    }
+    g.font = `${font} ${size}px ${family}`;
     if (vertical) {
       // vertical Japanese signs: one character per row
       const chars = [...lines.join('')];
@@ -58,7 +99,13 @@ export function signTexture({ lines = [], bg = '#ffffff', fg = '#000000', border
       chars.forEach((ch, i) => g.fillText(ch, w / 2, step * (i + 1)));
     } else {
       const top = shape === 'triangleDown' ? h * 0.3 : h / 2 - ((n - 1) * size * 1.1) / 2;
-      lines.forEach((t, i) => g.fillText(t, w / 2, top + i * size * 1.1, w * 0.9));
+      // A fitted circle already measured the real ink, so don't squash it.
+      const fitted = shape === 'circle' && radiusMargin > 0;
+      lines.forEach((t, i) => {
+        const y = top + i * size * 1.1;
+        if (fitted) g.fillText(t, w / 2, y);
+        else g.fillText(t, w / 2, y, w * 0.9);
+      });
     }
   }
   paletteCanvas(c); // signs use the palette too
