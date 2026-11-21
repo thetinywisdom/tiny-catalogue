@@ -1,194 +1,62 @@
-# PLAN.md: Tiny City Builder
+# PLAN.md: Tiny Catalogue
 
-Where the project is going, what is done, what is next, and the decisions
-that shape it. Update this file with every change (see SKILLS.md).
+Where this repo is going. Update it with every change (see SKILLS.md).
 
 ## Goal
 
-A **foundation for the owner's future games**: a small Japanese town and its
-people in a PS1 look, as reusable three.js modules, with SKILLS.md teaching
-game-building agents how to use them. Not a product for players and not a
-city builder: each game builds its own gameplay, UI and editors.
+A **catalogue app** for the Tiny City Builder pieces: buildings, street props,
+vehicles, foliage, animals, and people, in the PS1 look. It opens straight
+into the catalogue. There is no walkable town, no character-creator screen,
+no cat lab, no walk lab, and no interior room kits.
 
-The repo's app is a **viewer** for the owner and agents: 📦 Catalogue (what
-exists), 👤 Characters (design, export / import character JSON, optional for
-games), 🏙 City (walk a generated sample town to experiment).
+The pieces stay reusable modules. A game imports `createAsset` and the PS1
+renderer. People stay faceless. Cats stay faceless.
 
-## Decisions (agreed with the owner)
+## Decisions
 
 | Area | Decision |
 |---|---|
-| Look | PS1 (low-res pixels, dither, outlines) in one muted / pastel palette |
-| Building colour | Walls, roofs, concrete and wood: greys, brick and wood browns only (natural colours, as in Japanese townscape rules) |
-| Colour | One palette (greyscale muted and off-white, pastels, a few muted darks), no bright colours; enforced in code (every colour and painted texture is snapped to it; skin excepted) |
-| Setting | A small Japanese town; cars drive on the left; Japanese signs |
-| Characters | Realistic proportions, no faces, tiny in the city; body types Man, Woman, Boy, Girl, each with a default design; builds Skinny / Normal / Bulky / Fat; the cat drawn 1.5× |
-| Character rules | Body types Man, Woman, Boy, Girl, Grandpa, Grandma; no facial hair on women / children; no skirts or crop tops on men / boys; ties need a shirt; sailor uniform for women / girls, gakuran for men / boys; children don't carry babies; yukata hides legwear; no school uniforms on grandparents |
-| Character creator | Viewer tool for exploring characters and exporting their JSON; using the characters is optional for games |
-| Output | Reusable modules + SKILLS.md. Towns are generated (or written as town JSON) by each game; characters can be exported as JSON |
-| Detail | "Feel real, not be real": painted shop interiors, curtains and office facades instead of modelled items |
-| App | A viewer only: Catalogue (home) / Characters / City. No city editor, no saved towns, no developer panel (removed: over-complicated) |
-| Platforms | Games: web + iOS / Android via three.js wrapped with Capacitor; glTF export as a backup for other engines |
-| Buildings | Shops and food places join block fills; public buildings (koban, post office, bank, clinic, fire station, parking, gas station) are placed by games |
-| Atmosphere | Night, rain and snow are cheap: shared-material glow with painted light masks, particles that follow the player; no real extra lights |
-| Building variety | A new seed must change the shape first (floors, roof, wings, layout), then details, then colour |
-| Interactions | E is the action key (pie menu on a person, get on / off a vehicle); clicks mirror it (hold slap, double push, right talk); traits Calm / Aggressive decide reactions |
-| Cameras | The city switches between third person and isometric |
-| Streets | Roads are 6 m (two narrow lanes), so towns feel small enough to explore; no cars parked at the kerb |
+| App | Catalogue only. No mode nav. 🎨 Colours stays. |
+| Look | PS1, one palette at a time (Golden hour is the default). Building colours stay natural greys, brick and wood, except where a catalogue piece already uses `paint` (European houses, signs). |
+| People | Catalogue tiles, edited in the item panel (chips, sliders, colour swatches, 🎲 New look). Seed 0 is that tile's starter. Any other seed rerolls hair, clothes, colours, build and a little of the size with `mulberry32`, and keeps the tile's body type. Explicit edits sit on top of the seed until the next New look. |
+| Faces | No eyes, mouth, nose or brows on people. No faces on cats. Glasses, masks and beards stay: they are accessories, not faces. |
+| Buildings | Japanese buildings and the European houses stay. Painted shop windows stay, because they are part of the building. Furnished interior rooms (office, diner, clinic, and the rest) are not in this app. |
+| Animation | A person in the item view can stand, walk or run (New or Classic). Cats keep Still / Walk / Run / Sit / Loaf / Sleep. Nobori and birds still move (`tickProps`). |
 
 ## Done
 
-88. **Dojo and station kits, catalogue only** (not placed in the sample town). Two tabs. Dojo (`dojo.room`, 9 × 9 m, up to 3,948 triangles): one solid sage tatami slab, kamidana, bokken racks, punching bags, training dummies, a weights corner, shoe shelves, stacked mats, wall scrolls, a mirror, windows and a sliding door. Station (`station.room`, 16 × 6 m, up to 2,704 triangles): ticket gates, ticket machines, a yellow tactile edge, benches, a block departure board, a vending machine, a pillar clock, signs, pillars and a roof canopy. Cutaway hides the +z and +x walls. Built in `src/dojo/items.js` and `src/station/items.js` so `createAsset` stays synchronous and every colour is a palette swatch through `style.material`. No new swatches. No GLBs. Floors are one solid colour (the tatami is one slab, not a grid). Manifest and the hand-made layout are in `public/dojo-kit/` and `public/station-kit/`. Each room takes `seed`: `0` is that layout; any other integer is deterministic (`src/dojo/arrange.js`, `src/station/arrange.js`, using `mulberry32`). Station gates and the platform edge stay put. The station catalogue thumbnail uses `fillFrame` so the long platform fills the square. `node scripts/check-room-seeds.mjs` checks seeds 0–50. Every piece is under 300 triangles. The sample town is unchanged.
+1. **Catalogue only.** Removed the walkable city, the character creator
+   screen, the cat lab, the walk lab, the city HUD (New town, Day, Weather,
+   Buttons, Iso view, Walk lab), the joystick, pie menu and speech overlay,
+   the interior room kits, and the code, labs and scripts that only those
+   used. Building builders stay in `src/city/` (houses, shops, civic,
+   European houses, painted windows, park). Props, vehicles, foliage, animals
+   and `tickProps` stay.
+2. **People tab.** Nine tiles: Man, Woman, Kid (boy), Kid (girl), Elderly man,
+   Elderly woman, Schoolkid (boy), Schoolkid (girl), Salaryman. Edited in the
+   existing item panel. The copied `createAsset(...)` line includes every
+   parameter and the seed.
+3. **Tiny Catalogue.** Title, README and `package.json` name. GitHub Actions
+   workflow deploys the Vite build to Pages on push to `main`.
 
-87. **Ramen, kitchen and library kits, catalogue only** (not placed in the sample town). Three tabs. Ramen (`ramen.room`, 7 × 5 m, up to 3,128 triangles): L or straight counter, 8–10 stools, open kitchen, ticket machine, chouchin lanterns, menu strips, sake shelf, noren. Kitchen (`kitchen.room`, 5 × 4 m, 1,576 triangles): cabinet run with sink, gas hob and fish grill, fridge, microwave rack, four-seat dining nook. Library (`library.room`, 10 × 8 m, 6,932 triangles): three or four rows of shelf bays, front desk, reading tables, kids' corner, return cart, magazine rack. Cutaway hides the +z and +x walls. Built in `src/ramen/items.js`, `src/kitchen/items.js` and `src/library/items.js` so `createAsset` stays synchronous and every colour is a palette swatch through `style.material`. No new swatches. No GLBs. Floors are one solid colour. Manifest and the hand-made layout are in `public/ramen-kit/`, `public/kitchen-kit/` and `public/library-kit/`. Each room takes `seed`: `0` is that layout; any other integer is deterministic (`src/ramen/arrange.js`, `src/kitchen/arrange.js`, `src/library/arrange.js`, using `mulberry32`). The counter, kitchen run and three shelf rows stay put. Stools and chairs face the counter or table. `node scripts/check-room-seeds.mjs` checks seeds 0–50. Every piece is under 300 triangles (the shelf bay is 288). The sample town is unchanged.
+The asset library was copied from Tiny City Builder (`thetinywisdom/character-creator`).
+That history (town generation, crowd, weather, interactions) is not in this
+repo anymore.
 
-86. **Office room seed** (catalogue only). `createAsset('office.room', { variant, seed }, style)`. Seed 0 is the authored plan. Any other integer rearranges desks (2–4), swaps the lounge and the meeting room, can mirror the floor plan, jitters chairs and desktop objects, and drops optional plants and storage. Walls, door, glass, kitchen and bar stay put. Same seed, same room. The Office panel has a seed number and Randomize.
+## Next
 
-85. **Cafe, classroom and open-office kits, catalogue only** (not placed in the sample town). Three tabs. Cafe (`cafe.room`, 8 × 6 m): espresso bar, pastry case, round tables, a window counter. Classroom (`classroom.room`, 9 × 7 m): rows of student desks, a podium, a green blackboard, cubbies, a sliding door. Open office (`openoffice.room`, 12 × 10 m, namespace `openoffice`, not `office`): shared bench desks, a lounge, a printer island and a short pantry, no cubicles. Each room is Cutaway or Full. Cutaway hides the +z and +x walls. Built in `src/cafe/items.js`, `src/classroom/items.js` and `src/openoffice/items.js` so `createAsset` stays synchronous and every colour is a palette swatch through `style.material`. No new swatches. No GLBs. Manifest and the hand-made layout are in `public/cafe-kit/`, `public/classroom-kit/` and `public/openoffice-kit/`. Each room takes `seed`: `0` (or omitted) is that layout; any other integer is deterministic (`src/cafe/arrange.js`, `src/classroom/arrange.js`, `src/openoffice/arrange.js`, using `mulberry32`). Doors, windows, the espresso bar, the blackboard and the pantry stay fixed. Counts, a small chair pull, optional props and one accent swatch change. Classroom desks stay in rows facing the board. `node scripts/check-room-seeds.mjs` checks seeds 0–50. The sample town is unchanged.
+Only when the owner asks.
 
-84. **Meeting, bedroom and studio kits, catalogue only** (three interior rooms in the PS1 look; not placed in the sample town). A tab each. Meeting is 6 × 4 m (long table, eight chairs, wall TV, whiteboard, glass partition with a door; 3,140 triangles). Bedroom is 3.5 × 3 m, one single bed (side table and lamp, wardrobe, desk and chair, window, rug; 1,420 triangles). Studio is a 6 × 4 m Japanese 1R (platform bed, sink, two-burner hob, small fridge, low table, sofa, TV, unit bath behind a door; 2,292 triangles). Cutaway hides the +z and +x walls. Built from boxes and cylinders in `src/meeting/items.js`, `src/bedroom/items.js` and `src/studio/items.js` so `createAsset` stays synchronous and every colour is a palette swatch through `style.material`. No new swatches. No GLBs. Manifest and layout are in `public/meeting-kit/`, `public/bedroom-kit/` and `public/studio-kit/`. Pieces stay under about 300 triangles (the unit bath is 300). A `seed` of 0 is the hand-made layout; any other integer is a deterministic rearrangement (meeting chairs, which wall the bed or sofa uses, optional props, bedding and rug swatches), checked so nothing overlaps or blocks a door or a walk of about 0.7 m. The sample town is unchanged.
+- More people tiles, if a look should be its own card rather than a setting.
+- More buildings or props, in the same catalogue pattern.
 
-83. **Clinic, police station and minimarket kits, catalogue only** (three interior rooms in the PS1 look; not placed in the sample town). Three tabs. Clinic (`clinic.room`, 10 × 8 m, 4,916 triangles) has a reception desk, waiting chairs, two exam bays, privacy curtains, a doctor desk, a scale, an IV stand and a medicine cabinet. Police (`police.room`, 12 × 8 m, 4,780 triangles) is a koban scaled up: front counter, officer desks, a barred holding cell, lockers, a notice board, filing cabinets and a water cooler. Minimarket (`minimarket.room`, 10 × 8 m, 6,004 triangles) is a konbini: register, shelf aisles, a drinks fridge wall, a hot-food warmer, a magazine rack, an ATM, a copier and baskets. Each room is `variant: 'Cutaway'` (hides the +z and +x walls) or `'Full'`, plus `seed`. Seed 0 is the hand-placed layout. Any other integer is deterministic (`mulberry32`): the same seed always rebuilds the same arrangement. Doors, windows, the clinic sink, the police counter and holding cell, and the minimarket fridge wall stay put. Chairs, desks, aisles, optional props and a few accent swatches vary, and a 0.9 m path stays clear. `node scripts/check-room-seeds.mjs` checks seeds 0–50 for overlaps. Seeded rooms stay under 10k triangles (clinic up to 5,020, police 5,116, minimarket 6,004). Built from boxes and cylinders in `src/clinic/items.js`, `src/police/items.js` and `src/minimarket/items.js` so `createAsset` stays synchronous and every colour is a palette swatch through `style.material`. No new swatches. No GLBs. Manifest and layout are in `public/clinic-kit/`, `public/police-kit/` and `public/minimarket-kit/`. Every piece is under 300 triangles. The sample town is unchanged.
+## Known issues
 
-82. **Diner kit, catalogue only** (a 1950s American diner in the PS1 look; not placed in the sample town). A Diner tab: 28 items plus the furnished room (`diner.room`, 12 × 8 m, Cutaway or Full). Cutaway hides the front (+z) and side (+x) walls, the two the isometric camera faces. Built from boxes and cylinders in `src/diner/items.js` so `createAsset` stays synchronous and every colour is a palette swatch through `style.material`. Reds, teals and creams use `paint`, `cloth` and `light`, so the building-colour rule does not turn them grey. No new swatches. No GLBs: the procedural builders are the kit. Manifest and the hand-placed layout are in `public/diner-kit/`. `seed` 0 keeps that layout; any other integer (`src/diner/plan.js`, `mulberry32`) varies the dining floor without moving the counter, kitchen, door or windows. The sample town is unchanged.
+- The item panel on a phone is a bottom sheet, so a person is previewed in
+  the top half. The sheet scrolls.
+- Changing the palette reloads the page (the whole scene is rebuilt). It
+  comes back to the same tab, and to the open item if there was one.
 
-81. **Iso characters read at street size** (iso view only; the creator and third person are unchanged). Adults are drawn about 6 heads tall, head width 0.95, limbs 25% thicker, and the figure is 1.2×, on a second low-detail mesh of about 700–1,000 triangles (`src/city/isoPeople.js`). Generated townspeople get legwear that contrasts with the top (denim, sage or dusty rose instead of navy or black) and about 40% get light hair or a light hat. Silhouettes draw only when a building is within 10 m along the view ray: people a stronger blue, the player pale yellow, cars faint. A faint ring marks the player. Seats, swings and bikes keep the iso hips on the real seat.
+## Open questions
 
-80. **Office kit, catalogue only** (owner: add the office furniture kit, do not place it in the sample town). An Office tab: 33 items (work, lounge, meeting, kitchen, plants) plus the furnished room (`office.room`, Cutaway or Full). Built from the kit's boxes and cylinders in `src/office/items.js` so `createAsset` stays synchronous and palettes go through `style.material`. GLBs, manifest and layout are in `public/office-kit/` (Vite and GitHub Pages serve them). The blend and rebuild script are `src/office/office_kit.blend` and `src/office/build_office_kit.py`. The sample town is unchanged.
-
-79. **Catalogue street life** (owner: manholes, back-of-house clutter, nobori, birds. Catalogue only; the sample town is unchanged): manhole covers (flower, wave, plain grid; an octagon, like the wheels, with a small hard-filtered texture), back-of-house clutter (propane pair with a short chain, gas meter, drainpipe with an elbow, and a cluster of the three), nobori banners (stripes or abstract blocks, no readable writing, a gentle vertex sway), pigeons (standing and pecking) and sparrows perched on a short wire. Every one takes `seed` (the catalogue's 🎲 New look). Colours come from the existing palette; no new swatches. No outdoor AC unit: those already sit on backs, balconies and roofs. At the PS1 detail level: manhole 40 triangles, propane pair 156, gas meter 64, drainpipe 78, cluster 310, nobori 92, pigeon 154, sparrow 156.
-
-78. **European houses, catalogue only**: Tudor cottage, Mediterranean villa, Dutch canal house, French country house, Scandinavian house, stone chapel (`src/city/europe.js`). Each takes a seed. In the catalogue that is the same 🎲 New look as the other buildings, and the seed is in the copied `createAsset(...)` line. The same seed always rebuilds the same house. The seed changes colours (existing palette swatches only), window count and which bay the door is in, storeys where the type allows, the Dutch gable (stepped or bell), and whether there is a chimney, a dormer, a balcony, shutters or window boxes. Scandinavian red and yellow, some Dutch facades, and shutter colours use the `paint` role so the neutral building rule does not turn them grey. No new swatches. The sample town does not place them. Their backs are part of the model: no Japanese AC units or fire escapes.
-
-77. **More foliage, catalogue only** (owner: bushes and more tree variants, the plant emojis): Japanese cedar (tall drooping spire), windmill palm (fan leaves and a dead skirt), camphor (dense round crown), pagoda tree (one flat crown), a leafless winter tree, and an autumn maple in Apricot and Brick. New bushes: trimmed boxwood, azalea, hydrangea, a low fern clump. Doorstep pots: fern, leafy, snake plant, cactus. They use the shared foliage pieces. The city still plants only the original 11 trees; parks, shrine groves and street planters are unchanged. No new palette swatches: the autumn maple is Brick and Apricot, azalea is Dusty rose and Blush, hydrangea is Powder blue, Lilac and Denim.
-
-76. **Foliage, kept low-poly** (owner: trees, bushes and hedges, especially bamboo and the old tree; an earlier rebuild was too much): canopies are clumped lobes with a lighter top and darker underside, same palette hues. Bamboo is thin segmented culms with node rings and sparse tufts at the top. The old giant kinks and splits into a few heavy limbs with a sparser crown. Bushes are a small mound of the same lumps. House hedges keep their size, with a clipped top instead of a plain box. Triangle counts stay under the old ones for every tree; bushes are about 1.5×; a hedge run is still under 100 triangles.
-
-1. **Style exploration** (phase 1): human, cat, tree; Ink & Cel vs PS1; PS1 · Bright + clear chosen; style guide.
-2. **Characters** (phase 2): modular human (hair 25+, facial hair, tops, legwear, footwear, outerwear, headwear, glasses, mask, accessories, hand items), natural walk / run, skirt stretch, wing flap, rules, body types with default designs, builds, street props.
-3. **Walkable city** (phase 3): generated town, pedestrians, cars, cats, lighting presets.
-4. **A. Foundation**: asset catalogue, city file format, generator / builder split, save & load.
-5. **B. City editor** (later removed, see 17).
-6. **UI redesign**: app bar with modes, picture palette with cached thumbnails, selected-object card, game-style character creator.
-7. **Never lose work**: autosave, My towns (rename, open, duplicate, delete).
-8. **Content**: shrine, school, nature tab (incl. cherry blossom), Japanese street props; sailor uniform, gakuran, yukata, apron, hand items; 18 new buildings (laundromat, kissaten, pharmacy, sushi, florist, fishmonger, udon / soba, family restaurant, takoyaki, koban, post office, bank, clinic, fire station, karaoke, wooden apartment, parking garage, gas station).
-9. **Making it feel alive**: painted shop interiors for every shop type, painted curtains upstairs, painted office facades, apartment balconies with laundry, roof clutter, rooftop signs.
-10. **Isometric camera** in Walk mode (switch with third person; zoom, rotate).
-11. **Cheaper walking people**: each person is one skinned mesh with vertex colours sharing one material: ~2 draw calls instead of ~21; a sample town went from 925 to 298 meshes (−68%).
-12. **Flicker fix**: shop windows, wooden fronts and crosswalks blinked while walking (z-fighting): 24-bit depth buffer, tighter iso camera range, surfaces kept ≥ 2 cm apart.
-13. **Smooth turning**: pedestrians and cars follow routes with rounded corners (people 1.2 m, cars 3 m) instead of snapping 90° in one frame.
-14. **Cars in their lane**: a leftover offset from the old ring road pushed cars half onto the pavement; cars now drive in the middle of the kerb-side lane (centre 2.1–2.25 m from the kerb, never on a pavement).
-15. **Narrower roads and collisions**: roads 6 m instead of 9 m (no kerb parking on narrow roads); everything solid has a collider; the player can't pass through things, cars, people or cats; pedestrians step round things and each other; cars brake for people and cars ahead.
-16. **Zebra crossings the right way**: bars run with the traffic, laid side by side across the road (fixed in the prop, so saved towns are fixed too).
-
-17. **Simplified to a foundation + viewer**: removed the city editor, My towns / autosave, town save / open, the developer panel and lil-gui. The app is now Catalogue / Characters (⬇ JSON export, ⬆ import) / City. Shared PS1 render step moved to `src/render/ps1.js`. SKILLS.md rewritten for game-building agents.
-
-18. **Cat animation**: walk (lateral sequence) and run (bounding gallop), head and tail; city cats wander and sometimes dash; the cat is in the catalogue (Animals) with Still / Walk / Run and fur colours.
-19. **People content**: Grandpa and Grandma body types (stoop, slow walk, walking stick); suit jacket, police uniform; straw hat, flat cap, police cap; held items with arm poses (open umbrella, phone, ice cream, coffee cup, boxes in both arms); a Looks row (office worker, police officer, delivery worker, ...); motorbikes (delivery scooter, step-through moped, motorcycle) parked round town.
-20. **More trees**: Japanese maple, ginkgo, zelkova, black pine, weeping willow, bamboo (parks and shrine groves use them).
-21. **Atmosphere**: lit night (windows, signs, shop interiors, lamps and light pools, via light masks, no real lights), rain (streaks, darker light, people open umbrellas), snow (flakes, white ground, roofs and trees). City buttons ☀ (time of day) and 🌤 (weather).
-
-22. **Real variety per seed**: every building's New look changes shape, height, roof, layout and details, not only colour (shared helpers in `city/variety.js`): houses (1–3 floors, roof types, wing, carport, front wall / hedge), shops (flats above, roofs, door side, awnings, things out front), civic buildings (heights, layouts, sign schemes, modern / classic koban, gas station pumps and car, shrine gates and side buildings, school wings and gym).
-23. **Iso silhouettes**: people hidden behind buildings show as flat silhouettes in the iso view (the player in yellow).
-
-24. **Rain and snow as a camera layer**: they were a box following the player (its edges showed and buildings hid it); now faked around the camera (drawn on top, covering the whole view) with real-world sizes and density, so zooming in stays clear (a screen-sized version hid everything when zoomed in); third person uses the same logic, sized for the view at the player.
-
-25. **Real car shapes**: cars rebuilt from side profiles (wheel arches, cabin, pillars, bumpers, lights, mirrors): kei car, sedan, hatchback, minivan, taxi (modern tall Japanese taxi), sports car (1970s fastback coupé), city bus; buses join the traffic; per-vehicle sizes for collisions and braking.
-26. **Silhouettes for everything that moves**: cats, cars and buses also show through buildings in the iso view; silhouettes are an even flat tint.
-
-27. **Lively backs and sides**: every building's bare back and side walls get windows (lit at night), AC units, back doors, drain pipes and fire escapes, found automatically (`city/backs.js`).
-
-28. **The palette**: one muted / pastel palette (27 colours, Catalogue 🎨 Palette tab); every material and painted texture snapped to it; clothes and hair lists remapped; readable sign text; sign faces no longer washed out by day.
-
-29. **Natural building colours and real motorbikes**: buildings snap to greys, brick and wood browns only; motorbikes rebuilt from the owner's references (three-wheeled 50cc / delivery scooter, step-through moped, 1980s sport tourer, new mini folding scooter).
-
-30. **Better cats**: new shape (chest, waist, haunches, neck, cheeks, jointed legs), coat patterns from the palette (solid, tabby, calico, tuxedo, bicolour, points), tail types (long, curled, bobtail), ear types (pointed, tufted, folded), long fluffy coat, resting poses (sit, loaf, sleep); city cats each look different and rest when they stop.
-
-31. **Natural cat shape**: rebuilt after the owner's reference as continuous flat-shaded lofted shapes (torso + neck, head), big triangle ears, slim legs, a low tail; patterns paint in bands.
-
-32. **Cute cats that fold their legs**: elbow and hock joints so sit / loaf / sleep tuck the legs under; cuter proportions (bigger head, shorter round body, shorter legs).
-
-33. **Character interactions**: calm / aggressive traits; slap, push and talk (Sims-style pie menu on E or click, plus shortcuts F / G / T and mouse hold / double / right click) with reactions (run away, slap back and chase, push back), chat bubbles and comic bursts (SLAP!, WHUMP!, WHOOPS!); banana peels people slip on; riding cars, the bus, a scooter and a bicycle. Iso rotate moved to < and >.
-
-34. **A busier town, step 1**: 66 people with roles (roaming walkers who cross streets, people standing about, bench sitters), distance culling; after a reaction people walk back naturally to their place. Clicks work at any distance (you run over); 50 matched small-talk questions and answers; flashy hit bursts; a push knocks people over and they react.
-
-35. **A busier town, step 2**: queues outside food shops, shop promoters calling out, chatting groups with bubbles, kids in the park, police, suits downtown and school uniforms by schools (~108 people).
-
-36. **A busier town, step 3**: people riding bicycles and scooters in traffic; a bus stop where the bus pulls in, people get on and off (faked).
-
-37. **Charge-ring slap, drifting, jumping**: hold to charge a slap (green-yellow slap, shaking yellow-red power slap); handbrake (Shift / right button) and drifting with skid marks; Space to jump; running builds up speed.
-
-38. **Blackout fix, angrier chases, scared flights**: the City no longer goes black (a crash in collisions; the loop now survives errors). Chasers sprint faster than you, yell, shove you off bikes and give up after 10 s or 300 m; calm people run 300 m along the streets and then walk back.
-
-39. **The bus turns properly**: traffic and the cars you drive turn round the rear axle instead of spinning on their centre; the bus takes wider corners.
-
-40. **Knock things flying**: sandwich boards, planters, parked bicycles and park bins hit by your vehicle fly off (CLONK!), land on their side, blink, go POOF and pop back at their place 5 s after the hit.
-
-41. **Bike crashes**: a crash on a bicycle or scooter throws you off (CRASH!); a bicycle or scooter you hit falls over with its rider, who shouts and then rides on.
-
-42. **Driving feel**: vehicles gather speed gradually (the bus slowest) instead of jumping to speed; the handbrake held going straight stops the vehicle, leaving skid marks.
-
-43. **Queues at the door**: queues (and promoters) stand 1.5 m from the actual storefront, also for shops set back from the street.
-
-44. **Domino pushes**: a push (or power slap) also knocks over the people standing around the victim, one after another (BUMP!), up to two steps on.
-
-45. **Owner's batch 22-26, 29**: no blob shadows under characters (cast shadows only); Bus and Banana peel cards in the catalogue, the bus stop card shows the shelter; bus shelters at the kerb with only the glass back solid, walkers step round behind them (no more stuck people); ride any vehicle, parked ones included; whoever was on a vehicle you take jumps out and runs away; riders who fall are thrown clear of their bike.
-46. **Comic hits (owner's picks)**: slap = Windmill spin, power slap = Launch, push = Sumo send-off, falls: calm Feet over head, aggressive Faceplant (all 9 kept in `comedy.js` for other games). Slap charge = small dial over the target's head (27). Fart wind-up squat, pixel dust and stink clouds, bench sitters chat and react with hands on laps, one bubble per person.
-47. **Real pixel UI (28)**: the owner picked the all-pixel look, split under the hood into two layers a game can choose: `world` (bubbles, tails, bursts, charge; 'pixel' paints them on a low-res canvas at the picture's pixel size, 'html' keeps page elements) and `hud` (pie menu, buttons; 'pixel' or 'clean'). Hit bursts stay spiky stars in every look.
-49. **Floating speech (owner's pick, design B)**: speech is floating pixel text over heads; the speech balloons are removed (owner hates them) and the HTML world layer with them. The bubble lab is kept as `labs/bubble-lab.html` for future game design.
-52. **Ghost-plate controls (owner's pick C)**: the action menu and the corner buttons are painted as pixels; fart moved into the menu (SLAP, PUSH, TALK, FART); keys 1-4 replace F/G/T/Q; left click talks, right click opens the menu. The controls lab is kept as `labs/controls-lab.html`.
-75. **Readable on phones; action buttons off** (owner: "on mobile everything is just black lines"; "remove all buttons for now, I hate it"): the picture's pixel size follows the screen (phones, short side under 600 px: 1 screen px per picture pixel, ~400 rows instead of ~200; desktop unchanged at 2); outlines: characters keep the strong dark edge, everything else gets a soft darker shade (x0.8) that fades out by ~55 m (materials flag "not a character" in alpha 0.5, render/ps1.js reads it). The action pad is switched off (`SHOW_PAD = false` in main.js, code kept); the walk joystick stays; the speech layer keeps its 2 px pixels.
-74. **Repo cleanup + GitHub Pages** (owner): `main` is now Tiny City Builder (fast-forwarded from claude/gifted-hopper-llhdvn); the gh-pages branch now holds the built game (the previous project's previews replaced by a normal commit) at https://thetinywisdom.github.io/character-creator/, updated with `scripts/publish-pages.sh`. Still to do by the owner: delete the 7 old `cursor/*` branches of the previous project (the session was not allowed to delete branches or push archive tags).
-73. **Easier to pick people, iso view above all** (owner: "finding NPC hitboxes is hard, especially in iso; iso-city made it easy"): like iso-city, each person has a generous hitbox: a capsule round the whole body, from below the feet to above the head, 14-40 px either side (38% of their height), the most squarely pointed-at wins, and whoever is ringed keeps priority (sticky). The iso view skips the behind-a-building test (the camera is far away, so that test hid everyone: 0% picks; iso shows people behind buildings as silhouettes anyway). Measured, clicking on or beside a visible person: iso 0% -> 83-90% (the rest pick a neighbour in a crowd), third person 72-100%; only ~5% of the screen counts as a person, so clicks on empty ground still do nothing.
-72. **Golden hour is the default palette** (owner's pick); the 🎨 picker is hidden in the City (kept in the other views); the neutral-building rule stays in every palette (owner decided).
-71. **Colour palettes** (owner: "more vibrant, and other variants; I want to choose"): 🎨 in the top bar picks one of seven: Muted (the original), Vibrant, Candy pop, Golden hour, Cool city, Retro 16, Manga ink. A palette swap: everything still snaps to the 28 named swatches, each variant gives every swatch its own colour (plus the sky and a skin mood), so the whole game changes together. The page reloads to rebuild and comes back to the same view and town. Buildings still follow the neutral building rule (greys, off-white, brick, wood) in every palette.
-70. **Hand cursor over empty ground fixed** (owner, desktop: "the cursor changes to the hand in random areas, and if I click, my character starts running randomly"): a vehicle counted as under the mouse anywhere in the box round its corners, which close to the camera is far bigger than a thin bicycle or scooter; now only a ray hit on its real shape counts (5 px of give). People and vehicles behind or inside a building can no longer be picked through the wall (camera-to-target segment vs building colliders). Holding the mouse still and then dragging the camera cancels the slap charge instead of slapping on release. (The earlier touch-only fix for long presses was a wrong guess: this was a desktop bug.)
-69. **Readable action buttons**: solid navy plates (86% opaque, pixel-cut corners, ink edge, top light) instead of the dithered see-through tiles, which the owner found hard to read; same in the kit.
-68. **Tiny UI Kit exported** to thetinywisdom/tiny-ui-kit (owner's request): the character designer (Creator + human subject), walk / run animation (gait.js + gaitIK.js), controls (CityInput as src/controls/input.js, ActionPad), pixel speech / bursts (PixelOverlay), the PS1 style and renderer, plus a play demo and the controls / bubble labs. Same folder layout as here, so files can be synced; when one of these changes here, copy it over too.
-67. **Bug fixes (owner)**: a long press with a finger no longer slaps whoever is near (finger long press does nothing; mouse hold still charges), and far-away people are no longer picked from 14 px away (5-14 px, a body's width); kids on the swings sit (their joints were not found before they had ever walked, so the sitting pose did nothing).
-66. **Action buttons for every interaction, four layouts** (owner: "the buttons aren't usable on mobile", "all interactions should be in a button", "the E icon should be a hand icon"): USE (hand), SLAP, PUSH, TALK, FART, JUMP, PEEL, RUN / BRAKE; fire on pointerdown (they used to need a click, which phones do not send while a thumb is on the joystick); tiles exactly the size of the tap areas, finger-sized with labels; act on the ringed nearest person in front; layouts Arc (default), Grid, Split, Bar, each with a portrait version. Owner to pick a favourite.
-65. **Traffic goes round a vehicle left in the road**: a car or bike you parked or sit in, or a fallen bike, in a traffic lane: traffic eases out to the right (away from the kerb) round it, measured along the curving route, holds out until its back is past, then eases back in; if there is no room (your car across the road at a corner) it waits behind and honks now and then. Moving vehicles never ignore it (the old "after 3 s ignore other cars" rule only applies to moving traffic). Measured: a traffic car stuck inside your parked car for 560+ frames, now 0 in all tests; normal traffic unchanged.
-64. **People walk round cars**: walkers and people crossing the road step round any car (the one you drive, parked ones), sliding along its side to the nearer end; at low speed your car stops against people instead of passing through them (owner's bug: people walked through the car you were in). Measured: people inside a stopped car over 6 test drops per town went from 444-773 frames to 0.
-63. **Real playground**: swings that swing (a kid on each, legs pumping), a proper slide (ladder, platform with rails and roof, curved chute with sides; a kid goes up and down it), a connected climbing frame (ball joints; a kid climbs and sits on top). Owner asked: "the playground sucks".
-62. **New walk and run engine** (learnt from the owner's iso-city game): steps tied to distance travelled, foot targets with 2-bone leg IK, heel strike / toe roll, 60% / 30% time on the ground (runs have real airtime), hips riding on the planted leg, lopsided arm swing, a dip when stopping, a squash when landing, a lean when speeding up, turn lean inside the body (feet stay down), look-around when idle. Measured foot slip went from up to 1 m per metre walked (Classic) to 1-2 cm. Default; "Animation: Classic" in the creator (or the Walk lab) brings the old one back. The owner decides whether Classic can be removed.
-61. **Click and seat fixes**: clicking empty ground no longer sends you running to a far vehicle or whoever you face; clicks while riding only get you off on your own vehicle; each scooter type has its own seat, the mini scooter's rider straddles it (legs no longer inside the body).
-60. **Every parked vehicle rideable**: the scooters and bicycles the layout puts outside shops (catalogue vehicles) were not rideable; now any catalogue vehicle in a town is.
-59. **Hover highlight**: a bright pulsing ring under whoever the mouse is over (and the open menu's person), hand cursor.
-58. **You outrun everyone**: no townsperson runs faster than your run divided by 1.25 (4.6 / 1.25 = 3.68 m/s), chasers and people fleeing included (owner's rule; replaces the earlier faster-than-you chasers).
-57. **Walk and run styles (owner's picks)**: 4 walks (Natural, Brisk, Swagger, Sneak) and 3 runs (Natural, Ninja, Panic) tuned by the owner in the Walk lab, picked separately in the creator; default Natural + Natural; townspeople get a random mix; everyone switches to running at 1.6 m/s over 0.2; the Walk lab is now a hidden dev tool.
-56. **The cat (owner's pick, revised)**: version 6's lofted body and jointed legs with version 2's round head (the owner found version 2's body horrendous); calico stays "mostly white"; the cute options (face, shape, paws, cheeks) still work. Town and catalogue use it; the lab keeps all versions. (`userData.cat.tailPose` in catGait lowers an upright tail in poses, for cats built with one.)
-55. **Earshot and the Cat lab**: speech shrinks and fades with distance; the Cat lab shows every cat version (from history) and 7 cute proposals on the same rig. Waiting for the owner's cat pick.
-54. **Walk lab**: try walk / run styles and tuning live on the main character (owner felt the walk awkward; a likely cause is the long walk-to-run blend after the gradual run acceleration). Waiting for the owner's pick to make it the default (and maybe for NPCs).
-53. **Phone controls**: clearer ghost plates (denser, solid edge), bigger corner tiles, pixel joystick, buttons stacked in portrait, a turn-sideways card with a landscape lock where the browser allows (not on iPhone).
-51. **Scripted conversations**: 28 owner-approved conversations (20 for any group, 8 for groups of four) replace the random chat lines; groups and bench pairs play them in order with quick overlapping reactions. No names in lines; NPC `name` is an optional field, unused for now.
-50. **Pedalling and leaning**: bicycle riders (you and traffic) pedal at a rate set by their speed; you and walkers lean into turns, bikes and scooters lean into corners with their rider.
-48. **Bench sitters stay seated** for the menu, talk and slaps (a push still knocks them off).
-
-## Next (only when the owner asks)
-
-Ideas, not commitments. The owner decides what to add.
-
-1. **More town content**: shopping arcade, train station, temple, more shop types.
-2. **Atmosphere extras**: puddles and wet reflections, falling cherry petals, a day / night cycle over time.
-3. **Freer layouts** (town JSON version 2): curved / narrow roads, rivers, train tracks.
-4. **First game hand-off**: when a game starts, note in SKILLS.md what it needed and missed.
-
-## Known issues and small ideas
-
-- The third-person camera cannot look up at tall buildings (the iso view covers this).
-- Phones have no action buttons for now (owner switched them off): on a phone
-  you can talk (tap someone) and push (double tap), but not slap, fart, jump,
-  run or drop a peel. Bring the pad back (`SHOW_PAD` in main.js) or design new
-  phone controls when the owner asks.
-- The previous project's 7 `cursor/*` branches are still on GitHub: the
-  session was not allowed to delete branches; the owner deletes them on
-  GitHub (Branches page).
-
-## Open questions for the owner
-
-None right now.
-
-## Answered
-
-- *Player-facing character creator: detailed sliders or presets?* Up to each game. This tool provides the JSON attributes; games build their own creators and decide what players can edit.
-- *Can players customise animals?* Same: up to each game.
+None.

@@ -1,9 +1,8 @@
 # Style Guide: PS1 · Bright + clear
 
 The look of the 3D world, decided in Phase 1. Everything built from here on
-should follow these rules. The live reference is the **PS1 · Bright + clear** row
-in the viewer (`npm run dev`), and the code that defines it is `src/styles/ps1.js`
-(`ps1Clear`).
+should follow these rules. The live reference is the catalogue (`npm run dev`),
+and the code that defines it is `src/styles/ps1.js` (`ps1Clear`).
 
 ## The idea
 
@@ -697,19 +696,10 @@ Dusty rose, Blush, Powder blue, Lilac and Denim.
   door is in, and whether a chimney, dormer, balcony, shutter or window box
   is there. Doors are about 2.1 m, the same scale as the other houses and the
   1.6 m people.
-- **Iso view: people read at street size.** Only the isometric view changes.
-  Adults are drawn about 6 heads tall, with a wider head and thicker limbs,
-  and the whole figure is 1.2× (cats stay at their own exaggeration).
-  Townspeople wear lighter trousers than their top (denim, sage, dusty rose
-  instead of navy or black), and about 40% have light hair or a light hat,
-  because from above the head is mostly hair. The creator and the
-  third-person view keep the original proportions and colours.
-- **Iso view: see-through people.** A person, cat or car behind a building
-  shows as a flat silhouette: people a stronger blue, the player a pale
-  yellow (it was gold, and disappeared on warm roofs), cars a faint
-  blue-grey. One is drawn only when a building actually hides them. A faint
-  ring under the player makes them findable in the crowd. Each silhouette
-  is one even flat tint.
+- **People in the catalogue** use these real-size proportions (about 7.5 heads
+  for an adult). They have no eyes, mouth, nose or brows. The old isometric
+  street-size people (chunkier, 1.2×, silhouettes behind buildings) are not
+  in this app.
 
 - **Buildings** are boxes with a few strong details, in muted wall colours:
   houses (2 floors, gable tile roof, low block wall, small balcony), apartment
@@ -728,7 +718,7 @@ Dusty rose, Blush, Powder blue, Lilac and Denim.
 ## 3g. Animation
 
 - Characters have real joints: hip → knee → ankle, shoulder → elbow.
-- **New engine (default; "Animation: New" in the creator):** learnt from the
+- **New engine (default; the person's Animation setting, `New`):** learnt from the
   owner's previous game (iso-city). It decides where each foot goes and bends
   hip and knee to reach it (2-bone IK), so a planted foot never slides:
   - The stride advances by **distance**, not time: one cycle (two steps) is
@@ -776,10 +766,12 @@ Dusty rose, Blush, Powder blue, Lilac and Denim.
     right shoulder forward), the head turns back to keep facing ahead and
     tilts up against the lean. Running arms tuck in and come slightly across
     the chest on the forward swing.
-- **Roller skate:** the first, sine-based cycle (smooth, gliding legs), kept as
-  an option ("Preview animation" and "City movement").
+- **Roller skate:** the first, sine-based cycle (smooth, gliding legs). It is
+  still in `anim/gait.js` as the `skate` style. The catalogue previews Still,
+  Walk and Run, not the skate cycle.
 - Walk blends into run with speed, and both fade to a standing pose with a
-  slight breathing motion.
+  slight breathing motion. The item panel's Still / Walk / Run buttons drive
+  that preview.
 - **Nobori and birds** (`anim/props.js`, `tickProps(root, time)`): the banner
   bends a few of its own vertices (the pole edge stays put). A pigeon bobs
   and pecks on a loop; a sparrow stays perched and turns its head. The seed
@@ -794,11 +786,9 @@ Dusty rose, Blush, Powder blue, Lilac and Denim.
 
 ## 5. Character size
 
-- **People: real size** (1×).
+- **People: real size** (1×). The catalogue does not scale them up.
 - **Animals: exaggerated where needed to read at street distance.** The cat is drawn
   **1.5× real size** (set with `exaggeration: 1.5` on the subject).
-- The viewer's **Extra character size** slider multiplies on top of this, for
-  experiments only; the default is 1.
 
 ## 6. Keeping a style switch cheap
 
