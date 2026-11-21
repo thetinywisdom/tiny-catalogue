@@ -261,7 +261,7 @@ export function createBrowser(assets, tabList) {
   function normalize(state) {
     const s = { ...state };
     if (s.group === 'palette') {
-      return { group: 'palette', sub: '', type: '', q: '', tags: [], fav: false, recent: false, wide: false };
+      return { group: 'palette', sub: '', type: '', q: '', tags: [], fav: false, recent: false, wide: false, item: '' };
     }
     if (!groupIds.has(s.group)) {
       if (leafGroup[s.group]) {
@@ -278,6 +278,7 @@ export function createBrowser(assets, tabList) {
     s.fav = !!s.fav;
     s.recent = !!s.recent;
     s.wide = !!(s.wide && (s.q || s.fav || s.recent));
+    s.item = String(s.item ?? '');
     return s;
   }
 
@@ -387,6 +388,7 @@ export function parseHash(hash) {
     fav: qs.get('fav') === '1',
     recent: qs.get('recent') === '1',
     wide: qs.get('wide') === '1',
+    item: qs.get('item') || '',
   };
 }
 
@@ -401,6 +403,7 @@ export function serializeHash(state) {
   if (state.fav) qs.set('fav', '1');
   if (state.recent) qs.set('recent', '1');
   if (state.wide && (state.q || state.fav || state.recent)) qs.set('wide', '1');
+  if (state.item) qs.set('item', state.item);
   const q = qs.toString();
   return parts.join('/') + (q ? `?${q}` : '');
 }

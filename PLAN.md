@@ -72,6 +72,14 @@ renderer. People stay faceless. Cats stay faceless.
    variations. Favourites and Recently used stay in this browser. The hash
    stores the list. Areas & Blocks opens the Areas cards, and Blocks beside
    it opens the block maker.
+10. **Browsing and inspecting.** Cards are a grid or a dense list. The
+    heading shows the group (or the kit, or the search) and the count, and
+    the active filters sit under it. Pictures load as they scroll near, and
+    each is framed from its own box: flat pieces from above, on the ground
+    colour, with one soft light. The item view has orbit, zoom and reset, the
+    measured width, height and depth, an optional metre grid and a faceless
+    1.6 m figure, the parameters, Copy link, and previous / next inside the
+    current filter. The address keeps the open item. Esc goes back.
 
 The asset library was copied from Tiny City Builder (`thetinywisdom/character-creator`).
 That history (town generation, crowd, weather, interactions) is not in this
@@ -83,9 +91,6 @@ Only when the owner asks.
 
 - More people tiles, if a look should be its own card rather than a setting.
 - More buildings or props, in the same catalogue pattern.
-- A closer thumbnail crop for flat pieces (a rug, a manhole). Cards already
-  frame each piece at the shared 3/4 angle. Changing that would redraw every
-  cached picture, so it was left alone.
 
 ## Known issues
 

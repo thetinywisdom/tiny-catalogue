@@ -15,8 +15,16 @@ The list is grouped: Buildings, Street & props, Nature, Vehicles, Characters
 dioramas. Blocks, next to it, opens the block maker. Press `/` to
 search every group by name or id. Chips narrow by indoor or outdoor, size,
 Japanese or European style, and whether the piece has variations. A star
-saves a favourite in this browser. The address keeps the group and the
-search, so a link opens the same list.
+saves a favourite in this browser. Grid or List changes how the cards are
+shown. Arrow keys move between them. The heading shows where you are and
+how many pieces match.
+
+Open a card to turn the piece around (drag, or the orbit buttons), zoom, and
+reset the view. The panel shows the measured size in metres, the parameters,
+and Copy link for this item. A ground grid and a faceless 1.6 m figure can
+be switched on as a scale reference. Previous and Next stay inside the
+current filter. Esc goes back. The address keeps the group, the search and
+the open item, so a link opens the same list or the same piece.
 
 **PS1**, next to Colours, turns the chunky look off: a smooth full-resolution
 picture, more geometry, no dither or outlines. Colours stay the same. The

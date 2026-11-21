@@ -844,6 +844,20 @@ in the git history. To keep a future switch to a small change:
 ## Catalogue screen
 
 The browser around the pictures uses the same dark panels and the accent
-yellow. A card's name is the friendly label. The id is the small line under
-it. Nothing here changes the PS1 picture, the palette or the framing of a
-thumbnail.
+yellow. Body text stays in the system font so it stays readable. Silkscreen
+is only the wordmark. A card's name is the friendly label. The id is the
+small line under it, and the footprint is the width × depth from the
+catalogue. Grid is the picture wall. List is one row per piece: picture,
+name, id, footprint.
+
+A card picture is framed from that object's box, with a little margin, and
+lit by the same soft sky, key and fill every time. A flat piece is seen from
+above so the face reads. The picture's background is the ground colour. The
+PS1 button still redraws them chunky or smooth. Palette colours do not change.
+
+The item view shows the name in full, the id, and the measured width, height
+and depth in metres. Orbit, zoom and reset sit on the picture. A metre grid
+and a faceless 1.6 m figure (a capsule and a blank sphere, no eyes, mouth,
+nose or brows) can be turned on. The parameter list is the same values the
+copied `createAsset` line uses. Empty, loading and "could not be drawn"
+states use the same panels.

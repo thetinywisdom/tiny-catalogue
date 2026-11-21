@@ -40,7 +40,7 @@ src/catalog/humans.js       People tiles and resolveHuman (seed + explicit edits
 src/catalog/areas.js        six 32 m blocks (Areas tab), layBlock, placeAreaCrowd
 src/catalog/blocks.js       saved-block JSON and buildUserBlock
 src/catalog/blockMaker.js   Blocks tab: edit one block in the catalogue panel
-src/catalog/thumbs.js       card pictures, cached in the browser
+src/catalog/thumbs.js       card pictures, framed from the bounding box, cached in the browser
 src/office, src/diner, src/clinic, src/police, src/minimarket,
 src/meeting, src/bedroom, src/studio, src/cafe, src/classroom,
 src/openoffice, src/ramen, src/kitchen, src/library, src/dojo, src/station
@@ -213,9 +213,24 @@ European houses. People and cats are not tagged indoor or outdoor.
 
 A star on the card is a favourite (`localStorage` `tinycity.favs`). Opening
 an item records it (`tinycity.recent`, 24 ids). The hash keeps the group,
-the kit or sub-filter, the room type, the search and the chips, so a link
-and the browser back button return to that list. Changing palette still
-reloads and reopens the item from `sessionStorage`.
+the kit or sub-filter, the room type, the search, the chips and the open
+item (`?item=`), so a link and the browser back button return to that list
+or that item. Esc, or Back, leaves the item. Prev and Next walk the filtered
+list. Grid or List (`tinycity.view`) is the card layout. Arrow keys move
+between cards. Changing palette still reloads and reopens the item from
+`sessionStorage`, and from the hash.
+
+Pictures are drawn when a card comes near the screen, one a frame, and kept
+in the browser. Each one is framed from that object's bounding box. A flat
+piece (a rug, a mat, a manhole) is seen from above, so the face shows. The
+picture sits on the ground colour, with the same soft light for every card.
+Bump `VERSION` in `catalog/thumbs.js` when a picture should be redrawn.
+
+The item view has orbit, zoom and reset, a width × height × depth readout,
+and an optional ground grid and a faceless 1.6 m figure (`tinycity.guides`).
+The figure is a capsule and a blank sphere: no eyes, mouth, nose or brows.
+The panel lists the parameters the `createAsset` line uses, and Copy link
+copies the address of this item.
 
 Room types come from the id. Doors, windows and lights are fixtures. Plants,
 posters, rugs and signs are decor. Mugs, books and other tabletop pieces are
@@ -253,13 +268,17 @@ No unit test suite. Before committing:
 - Open the built page in headless Chromium
   (`--use-gl=angle --use-angle=swiftshader`). The catalogue loads with no
   console errors. Every group opens, and Rooms reaches each kit. Search finds
-  an item from another group. A person opens in `#item`. Changing a
+  an item from another group. Grid and List both show the cards. A person
+  opens in `#item`, with a size readout and a parameter list. Orbit, zoom
+  and reset move the camera. Prev and Next stay inside the filter. Esc
+  returns to the list, and the hash can open that item directly. Changing a
   setting and pressing New look both change the mesh. The same seed resolves
   to the same parameters twice. An area opens too: New look changes the
   layout, and the same seed puts things back in the same places. A furnished
   room opens: seed 0 is the hand-made layout, another seed rearranges it,
-  and the PS1 button still draws that room. Phone width 390×844 still
-  scrolls the panel and the group row.
+  and the PS1 button still draws that room. A flat piece's card shows its
+  face, not a thin edge. Phone width 390×844 still scrolls the panel and the
+  group row, and the item controls fit.
 - `window.__cc`: `state`, `setView('catalog'|'item')`, `openItem(id, params)`,
   `CATALOG`, `ASSETS`, `resolve(id, params)`, `createAsset`, `orbit(az)`,
   `pose()`, `look(position, target)` (place the preview camera),

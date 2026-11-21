@@ -27,10 +27,32 @@
         <div class="cat-groups" role="toolbar" aria-label="Catalogue groups"></div>
         <div class="cat-sub"></div>
         <div class="cat-tags"></div>
+        <div class="cat-bar">
+          <div class="cat-heading">
+            <h1 id="catTitle">Catalogue</h1>
+            <span id="catCount" class="cat-count" hidden></span>
+          </div>
+          <p id="catScope" class="cat-scope" hidden></p>
+          <div class="cat-views" role="group" aria-label="Layout">
+            <button type="button" id="viewGrid" aria-pressed="true">Grid</button>
+            <button type="button" id="viewList" aria-pressed="false">List</button>
+          </div>
+        </div>
         <p class="cat-meta" aria-live="polite"></p>
       </div>
-      <div class="cat-grid"></div>
+      <div class="cat-grid">
+        <p class="cat-boot" id="catBoot">Loading catalogue…</p>
+      </div>
     </main>
+    <div id="stageTools" hidden>
+      <button type="button" data-cam="turn-left" aria-label="Orbit left">Orbit left</button>
+      <button type="button" data-cam="turn-right" aria-label="Orbit right">Orbit right</button>
+      <button type="button" data-cam="zoom-out" aria-label="Zoom out">−</button>
+      <button type="button" data-cam="zoom-in" aria-label="Zoom in">+</button>
+      <button type="button" data-cam="reset">Reset</button>
+      <button type="button" data-cam="grid" aria-pressed="true">Grid</button>
+      <button type="button" data-cam="figure" aria-pressed="false" title="Show a faceless figure 1.6 m tall">1.6 m</button>
+    </div>
     <aside id="item" hidden></aside>
     <div id="palettePanel" hidden role="dialog" aria-label="Colour palette"></div>
     <div id="toast" role="status" hidden></div>

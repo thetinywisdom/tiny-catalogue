@@ -67,12 +67,15 @@ export class Cell {
   }
 
   rebuild(params) {
+    this.clearGuides();
     disposeGeometry(this.content);
     this.content.clear();
     this.pivots = [];
 
     setDetail(this.style.detail ?? 1);
-    const items = this.entries.map(({ subject, overrides }) => {
+    let items;
+    try {
+      items = this.entries.map(({ subject, overrides }) => {
       const p = overrides ? { ...params[subject.id], ...overrides } : params[subject.id];
       const obj = subject.build(p, this.style);
       if (subject.isCharacter) obj.scale.setScalar((subject.exaggeration ?? 1) * Cell.characterScale);
@@ -88,7 +91,9 @@ export class Cell {
       const hr = Math.max(-box.min.x, box.max.x, -box.min.z, box.max.z);
       return { obj, box, hr };
     });
-    setDetail(1);
+    } finally {
+      setDetail(1);
+    }
 
     // lay subjects out left to right, centred on x = 0
     const xs = [];
@@ -268,6 +273,67 @@ export class Cell {
     for (const p of this.pivots) if (!p.userData.fixed) p.rotation.y = angle;
   }
 
+  /** World box of the subject meshes. The ground disc and the scale guides are not in the pivots. */
+  subjectBox() {
+    const box = new THREE.Box3();
+    for (const pivot of this.pivots) {
+      pivot.updateWorldMatrix(true, true);
+      pivot.traverse((o) => {
+        if (!o.isMesh || o.userData.scaleRef) return;
+        box.expandByObject(o, true);
+      });
+    }
+    return box;
+  }
+
+  measuredSize() {
+    const size = this.subjectBox().getSize(new THREE.Vector3());
+    return { w: size.x, h: size.y, d: size.z };
+  }
+
+  clearGuides() {
+    if (!this.guides) {
+      this.showFigure = false;
+      return;
+    }
+    const mats = new Set();
+    this.guides.traverse((o) => {
+      o.geometry?.dispose();
+      if (o.material) [].concat(o.material).forEach((m) => mats.add(m));
+    });
+    mats.forEach((m) => m.dispose());
+    this.guides.removeFromParent();
+    this.guides = null;
+    this.guideExtra = null;
+    this.showFigure = false;
+  }
+
+  /**
+   * Ground grid and a faceless 1.6 m figure. Neither has eyes, a mouth,
+   * a nose or brows. The figure is a scale marker, not a person from the catalogue.
+   */
+  setGuides({ grid = false, figure = false } = {}) {
+    this.clearGuides();
+    this.showFigure = !!figure;
+    const subject = this.subjectBox();
+    if (subject.isEmpty() || (!grid && !figure)) return;
+    this.guides = new THREE.Group();
+    this.guides.name = 'guides';
+    this.content.add(this.guides);
+    if (grid) this.guides.add(buildGroundGrid(subject));
+    this.guideExtra = new THREE.Box3();
+    this.guideExtra.makeEmpty();
+    if (figure) {
+      const fig = buildScaleFigure();
+      const center = subject.getCenter(new THREE.Vector3());
+      const gap = Math.max(0.35, Math.min(1.2, (subject.max.x - subject.min.x) * 0.08));
+      fig.position.set(subject.max.x + 0.28 + gap, 0, center.z);
+      this.guides.add(fig);
+      fig.updateWorldMatrix(true, true);
+      this.guideExtra.setFromObject(fig);
+    }
+  }
+
   /**
    * Place `camera` so the subjects' bounding box fits the given aspect ratio.
    * minHeight > 0 frames at least that many metres of height, which shows the
@@ -279,10 +345,13 @@ export class Cell {
     const tv = Math.tan(THREE.MathUtils.degToRad(FOV) / 2);
     const th = tv * aspect;
     // camera basis, matching Object3D.lookAt: z = back, x = right, y = up
-    const right = new THREE.Vector3(0, 1, 0).cross(this.viewDir).normalize();
-    const up = this.viewDir.clone().cross(right);
+    let right = new THREE.Vector3(0, 1, 0).cross(this.viewDir);
+    if (right.lengthSq() < 1e-8) right = new THREE.Vector3(1, 0, 0);
+    right.normalize();
+    const up = this.viewDir.clone().cross(right).normalize();
     let dist = 0;
     const box = this.bounds.clone();
+    if (this.showFigure && this.guideExtra && !this.guideExtra.isEmpty()) box.union(this.guideExtra);
     if (minHeight > 0) {
       const c = box.getCenter(new THREE.Vector3());
       const half = minHeight * 0.3;
@@ -310,4 +379,48 @@ export class Cell {
       this.scene.fog.far = dist + this.radius + Math.max(25, dist * 2.5);
     }
   }
+}
+
+/** A metre grid under the subject. Cell size stays a round measure. */
+function buildGroundGrid(box) {
+  const span = Math.max(box.max.x - box.min.x, box.max.z - box.min.z, 0.4);
+  const step = span < 0.45 ? 0.1 : span < 1.2 ? 0.5 : span > 24 ? 4 : span > 12 ? 2 : 1;
+  const reach = Math.max(span * 1.5, step * 6);
+  let cells = Math.ceil(reach / step);
+  if (cells % 2) cells += 1;
+  const grid = new THREE.GridHelper(cells * step, cells, 0x918f8a, 0x5c6168);
+  const center = box.getCenter(new THREE.Vector3());
+  grid.position.set(center.x, 0.008, center.z);
+  const mats = [].concat(grid.material);
+  mats.forEach((m) => {
+    m.transparent = true;
+    m.opacity = 0.85;
+    m.depthWrite = false;
+  });
+  grid.userData.scaleRef = true;
+  grid.raycast = () => {};
+  return grid;
+}
+
+/**
+ * A 1.6 m stand-in: a capsule body and a blank sphere for the head.
+ * No eyes, mouth, nose or brows.
+ */
+function buildScaleFigure() {
+  const g = new THREE.Group();
+  g.name = 'scale-figure';
+  g.userData.scaleRef = true;
+  const mat = new THREE.MeshLambertMaterial({ color: 0xd2cdc2 });
+  mat.opacity = 0.5;
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.16, 0.92, 2, 6), mat);
+  body.position.y = 0.62;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), mat);
+  head.position.y = 1.44;
+  g.add(body, head);
+  g.traverse((o) => {
+    o.userData.scaleRef = true;
+    o.castShadow = false;
+    o.receiveShadow = false;
+  });
+  return g;
 }
