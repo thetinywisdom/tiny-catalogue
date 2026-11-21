@@ -2,7 +2,8 @@
 
 A catalogue of the low-poly PS1 town pieces from Tiny City Builder: buildings
 (including the European houses), street props, vehicles, foliage, animals,
-people, and six small areas (a shopping street, a lane, a station plaza, a
+people, furnished rooms (an office, a diner, a clinic, and the rest of the
+room tabs), and six small areas (a shopping street, a lane, a station plaza, a
 shrine corner, an old-town square, a back alley). Open an item, turn it
 around, change its settings, and copy the `createAsset(...)` line.
 
@@ -42,6 +43,7 @@ const ps1 = createPs1Renderer(renderer);
 const scene = new THREE.Scene();
 scene.add(createAsset('building.koban', { seed: 1 }, style));
 scene.add(createAsset('human.salaryman', { seed: 4 }, style));
+scene.add(createAsset('diner.room', { variant: 'Cutaway', seed: 0 }, style));
 // each frame: ps1.render({ scene, style }, camera, 0, 0, w, h);
 ```
 

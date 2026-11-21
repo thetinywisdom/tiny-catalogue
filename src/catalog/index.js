@@ -19,6 +19,23 @@ import { park } from '../city/park.js';
 import { PROP_GROUPS } from '../props/index.js';
 import { wire } from '../props/extras.js';
 import { tiledBox } from '../props/util.js';
+import { OFFICE_ITEMS, buildOfficeItem, buildOfficeRoom } from '../office/items.js';
+import { DINER_ITEMS, buildDinerItem, buildDinerRoom } from '../diner/items.js';
+import { CLINIC_ITEMS, buildClinicItem, buildClinicRoom } from '../clinic/items.js';
+import { POLICE_ITEMS, buildPoliceItem, buildPoliceRoom } from '../police/items.js';
+import { MINIMARKET_ITEMS, buildMinimarketItem, buildMinimarketRoom } from '../minimarket/items.js';
+import { MEETING_ITEMS, buildMeetingItem, buildMeetingRoom } from '../meeting/items.js';
+import { BEDROOM_ITEMS, buildBedroomItem, buildBedroomRoom } from '../bedroom/items.js';
+import { STUDIO_ITEMS, buildStudioItem, buildStudioRoom } from '../studio/items.js';
+import { CAFE_ITEMS, buildCafeItem, buildCafeRoom } from '../cafe/items.js';
+import { CLASSROOM_ITEMS, buildClassroomItem, buildClassroomRoom } from '../classroom/items.js';
+import { OPEN_OFFICE_ITEMS, buildOpenOfficeItem, buildOpenOfficeRoom } from '../openoffice/items.js';
+import { RAMEN_ITEMS, buildRamenItem, buildRamenRoom } from '../ramen/items.js';
+import { KITCHEN_ITEMS, buildKitchenItem, buildKitchenRoom } from '../kitchen/items.js';
+import { LIBRARY_ITEMS, buildLibraryItem, buildLibraryRoom } from '../library/items.js';
+import { DOJO_ITEMS, buildDojoItem, buildDojoRoom } from '../dojo/items.js';
+import { STATION_ITEMS, buildStationItem, buildStationRoom } from '../station/items.js';
+
 // The asset catalogue: every placeable thing behind one interface, so a game
 // can create any of them the same way (createAsset).
 //
@@ -27,7 +44,10 @@ import { tiledBox } from '../props/util.js';
 //   label     name for menus
 //   category  'building' | 'area' | 'nature' | 'animal' | 'prop' | 'vehicle' | 'ground' | 'line'
 //   group     catalogue tab: 'buildings' | 'street' | 'traffic' | 'extras' |
-//             'vehicles' | 'nature' | 'animals' | 'people' | 'areas'
+//             'vehicles' | 'nature' | 'animals' | 'people' | 'areas' |
+//             'office' | 'diner' | 'clinic' | 'police' | 'minimarket' |
+//             'meeting' | 'bedroom' | 'studio' | 'cafe' | 'classroom' |
+//             'openoffice' | 'ramen' | 'kitchen' | 'library' | 'dojo' | 'station'
 //             (none = not listed)
 //   params    default settings (a city object's params override these)
 //   variants  optional list of variant names (params.variant)
@@ -324,7 +344,264 @@ const detailAssets = [{
   },
 }];
 
-export const ASSETS = [...buildingAssets, ...areaAssets, ...natureAssets, ...animalAssets, ...humanAssets(), ...propAssets, ...detailAssets, ...groundAssets];
+// Catalogue only. The sample town does not place these (not in layout.js).
+// One Office tab: the furnished room, then every kit item. Parts are built in
+// src/office/items.js so createAsset stays synchronous.
+const officeAssets = [{
+  id: 'office.room',
+  label: 'Office',
+  category: 'area',
+  group: 'office',
+  variants: ['Cutaway', 'Full'],
+  params: { variant: 'Cutaway', seed: 0 },
+  // Number box + Randomize in the catalogue. Other seeded props keep "New look".
+  seedInput: true,
+  size: [6.5, 14.5],
+  // Higher than the usual 3/4 view: the room has no roof, and this looks in.
+  viewDir: [0.85, 1.35, 0.7],
+  build(p, style) {
+    const r = buildOfficeRoom(style, { cutaway: p.variant !== 'Full', seed: p.seed ?? 0 });
+    return withColliders(r.group, r.colliders);
+  },
+}, ...OFFICE_ITEMS.map((item) => ({
+  id: item.id,
+  label: item.label,
+  category: 'prop',
+  group: 'office',
+  params: {},
+  size: item.size,
+  build(_p, style) {
+    return withColliders(buildOfficeItem(item.name, style), item.hit);
+  },
+}))];
+
+// Catalogue only. The sample town does not place these (not in layout.js).
+// One tab per room: the furnished room, then every kit item. Parts are built
+// in src/<room>/items.js so createAsset stays synchronous.
+function roomKit(group, room) {
+  return [{
+    id: room.id,
+    label: room.label,
+    category: 'area',
+    group,
+    variants: ['Cutaway', 'Full'],
+    params: { variant: 'Cutaway', seed: 0 },
+    // Number field plus Randomize. Other seeded assets keep their own control.
+    seedInput: true,
+    size: room.size,
+    // Isometric corner (equal x and z) and a little steeper than 35°, so the
+    // open room reads. Cutaway hides the two walls this camera faces.
+    viewDir: [1, 1.15, 1],
+    build(p, style) {
+      const r = room.build(style, { cutaway: p.variant !== 'Full', seed: p.seed | 0 });
+      return withColliders(r.group, r.colliders);
+    },
+  }, ...room.items.map((item) => ({
+    id: item.id,
+    label: item.label,
+    category: 'prop',
+    group,
+    params: {},
+    size: item.size,
+    build(_p, style) {
+      return withColliders(room.item(item.name, style), item.hit);
+    },
+  }))];
+}
+
+const meetingAssets = roomKit('meeting', {
+  id: 'meeting.room', label: 'Meeting room', size: [6, 4],
+  items: MEETING_ITEMS, build: buildMeetingRoom, item: buildMeetingItem,
+});
+const bedroomAssets = roomKit('bedroom', {
+  id: 'bedroom.room', label: 'Small bedroom', size: [3.5, 3],
+  items: BEDROOM_ITEMS, build: buildBedroomRoom, item: buildBedroomItem,
+});
+const studioAssets = roomKit('studio', {
+  id: 'studio.room', label: 'Studio apartment', size: [6, 4],
+  items: STUDIO_ITEMS, build: buildStudioRoom, item: buildStudioItem,
+});
+
+// One Diner tab: the furnished room, then every kit item. Parts are built in
+// src/diner/items.js so createAsset stays synchronous.
+const dinerAssets = [{
+  id: 'diner.room',
+  label: 'Diner',
+  category: 'area',
+  group: 'diner',
+  variants: ['Cutaway', 'Full'],
+  params: { variant: 'Cutaway', seed: 0 },
+  // Number field + Randomize in the catalogue panel. 0 is the hand-placed room.
+  seedInput: true,
+  size: [12, 8],
+  // Isometric corner (equal x and z) and a little steeper than 35°, so the
+  // open room reads. Cutaway hides the two walls this camera faces.
+  viewDir: [1, 1.15, 1],
+  build(p, style) {
+    const r = buildDinerRoom(style, { cutaway: p.variant !== 'Full', seed: p.seed });
+    return withColliders(r.group, r.colliders);
+  },
+}, ...DINER_ITEMS.map((item) => ({
+  id: item.id,
+  label: item.label,
+  category: 'prop',
+  group: 'diner',
+  params: {},
+  size: item.size,
+  build(_p, style) {
+    return withColliders(buildDinerItem(item.name, style), item.hit);
+  },
+}))];
+
+// One tab per kit: the furnished room, then every item. Parts are built in
+// src/<kit>/items.js so createAsset stays synchronous. Each kit is its own
+// block so another room kit can land beside these without editing them.
+const clinicAssets = [{
+  id: 'clinic.room',
+  label: 'Clinic',
+  category: 'area',
+  group: 'clinic',
+  variants: ['Cutaway', 'Full'],
+  params: { variant: 'Cutaway', seed: 0 },
+  size: [10, 8],
+  // Isometric corner (equal x and z) and a little steeper than 35°, so the
+  // open room reads. Cutaway hides the two walls this camera faces.
+  viewDir: [1, 1.15, 1],
+  build(p, style) {
+    const r = buildClinicRoom(style, { cutaway: p.variant !== 'Full', seed: p.seed | 0 });
+    return withColliders(r.group, r.colliders);
+  },
+}, ...CLINIC_ITEMS.map((item) => ({
+  id: item.id,
+  label: item.label,
+  category: 'prop',
+  group: 'clinic',
+  params: {},
+  size: item.size,
+  build(_p, style) {
+    return withColliders(buildClinicItem(item.name, style), item.hit);
+  },
+}))];
+
+const policeAssets = [{
+  id: 'police.room',
+  label: 'Police station',
+  category: 'area',
+  group: 'police',
+  variants: ['Cutaway', 'Full'],
+  params: { variant: 'Cutaway', seed: 0 },
+  size: [12, 8],
+  viewDir: [1, 1.15, 1],
+  build(p, style) {
+    const r = buildPoliceRoom(style, { cutaway: p.variant !== 'Full', seed: p.seed | 0 });
+    return withColliders(r.group, r.colliders);
+  },
+}, ...POLICE_ITEMS.map((item) => ({
+  id: item.id,
+  label: item.label,
+  category: 'prop',
+  group: 'police',
+  params: {},
+  size: item.size,
+  build(_p, style) {
+    return withColliders(buildPoliceItem(item.name, style), item.hit);
+  },
+}))];
+
+const minimarketAssets = [{
+  id: 'minimarket.room',
+  label: 'Minimarket',
+  category: 'area',
+  group: 'minimarket',
+  variants: ['Cutaway', 'Full'],
+  params: { variant: 'Cutaway', seed: 0 },
+  size: [10, 8],
+  viewDir: [1, 1.15, 1],
+  build(p, style) {
+    const r = buildMinimarketRoom(style, { cutaway: p.variant !== 'Full', seed: p.seed | 0 });
+    return withColliders(r.group, r.colliders);
+  },
+}, ...MINIMARKET_ITEMS.map((item) => ({
+  id: item.id,
+  label: item.label,
+  category: 'prop',
+  group: 'minimarket',
+  params: {},
+  size: item.size,
+  build(_p, style) {
+    return withColliders(buildMinimarketItem(item.name, style), item.hit);
+  },
+}))];
+
+// One tab each: the furnished room, then every kit item. Parts are built in
+// src/cafe, src/classroom and src/openoffice so createAsset stays synchronous.
+function roomAsset(id, label, group, size, build) {
+  return {
+    id,
+    label,
+    category: 'area',
+    group,
+    variants: ['Cutaway', 'Full'],
+    params: { variant: 'Cutaway', seed: 0 },
+    seedControl: true,
+    size,
+    // Isometric corner (equal x and z) and a little steeper than 35°, so the
+    // open room reads. Cutaway hides the two walls this camera faces.
+    viewDir: [1, 1.15, 1],
+    build(p, style) {
+      const r = build(style, { cutaway: p.variant !== 'Full', seed: Number(p.seed) || 0 });
+      return withColliders(r.group, r.colliders);
+    },
+  };
+}
+function kitAssets(group, items, buildItem) {
+  return items.map((item) => ({
+    id: item.id,
+    label: item.label,
+    category: 'prop',
+    group,
+    params: {},
+    size: item.size,
+    build(_p, style) {
+      return withColliders(buildItem(item.name, style), item.hit);
+    },
+  }));
+}
+const cafeAssets = [
+  roomAsset('cafe.room', 'Cafe', 'cafe', [8, 6], buildCafeRoom),
+  ...kitAssets('cafe', CAFE_ITEMS, buildCafeItem),
+];
+const classroomAssets = [
+  roomAsset('classroom.room', 'Classroom', 'classroom', [9, 7], buildClassroomRoom),
+  ...kitAssets('classroom', CLASSROOM_ITEMS, buildClassroomItem),
+];
+const openOfficeAssets = [
+  roomAsset('openoffice.room', 'Open office', 'openoffice', [12, 10], buildOpenOfficeRoom),
+  ...kitAssets('openoffice', OPEN_OFFICE_ITEMS, buildOpenOfficeItem),
+];
+const ramenAssets = [
+  roomAsset('ramen.room', 'Ramen shop', 'ramen', [7, 5], buildRamenRoom),
+  ...kitAssets('ramen', RAMEN_ITEMS, buildRamenItem),
+];
+const kitchenAssets = [
+  roomAsset('kitchen.room', 'Kitchen', 'kitchen', [5, 4], buildKitchenRoom),
+  ...kitAssets('kitchen', KITCHEN_ITEMS, buildKitchenItem),
+];
+const libraryAssets = [
+  roomAsset('library.room', 'Library', 'library', [10, 8], buildLibraryRoom),
+  ...kitAssets('library', LIBRARY_ITEMS, buildLibraryItem),
+];
+const dojoAssets = [
+  roomAsset('dojo.room', 'Dojo', 'dojo', [9, 9], buildDojoRoom),
+  ...kitAssets('dojo', DOJO_ITEMS, buildDojoItem),
+];
+const stationAssets = [
+  // fillFrame: the 16 × 6 platform is framed to its box, so the thumbnail fills like the squarer rooms.
+  { ...roomAsset('station.room', 'Train platform', 'station', [16, 6], buildStationRoom), fillFrame: true },
+  ...kitAssets('station', STATION_ITEMS, buildStationItem),
+];
+
+export const ASSETS = [...buildingAssets, ...areaAssets, ...natureAssets, ...animalAssets, ...humanAssets(), ...propAssets, ...detailAssets, ...officeAssets, ...dinerAssets, ...clinicAssets, ...policeAssets, ...minimarketAssets, ...meetingAssets, ...bedroomAssets, ...studioAssets, ...cafeAssets, ...classroomAssets, ...openOfficeAssets, ...ramenAssets, ...kitchenAssets, ...libraryAssets, ...dojoAssets, ...stationAssets, ...groundAssets];
 export const CATALOG = Object.fromEntries(ASSETS.map((a) => [a.id, a]));
 
 /** Assets of one category (or all). */
