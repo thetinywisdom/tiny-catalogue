@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { GAP, markGround } from '../lib/ground.js';
 import { signTexture } from '../lib/textures.js';
 import { box, cyl, face } from '../props/util.js';
 import { bicycle, car } from '../props/vehicles.js';
@@ -411,7 +412,7 @@ export function gasStation(style, rng, w, d) {
   const colliders = [];
   const brand = pick(rng, [[0xd8302a, '#d8302a'], [0x1f4fa8, '#1f4fa8'], [0x279a4a, '#279a4a'], [0xf08a2c, '#f08a2c']]);
   const red = style.material('signage', brand[0]);
-  g.add(box(w, 0.05, d, style.material('concrete', 0xc8c4bc), [0, 0.03, 0]));            // forecourt
+  g.add(markGround(box(w, 0.04, d, style.material('concrete', 0xc8c4bc), [0, 0.02, 0]))); // forecourt, top 0.04
   // the shop at the back, to one side
   const kw = Math.min(w - 2, 5 + rng() * 4), kd = 4, kz = -d / 2 + kd / 2 + 0.3;
   const kx = s * (w - kw) * 0.3;
@@ -432,7 +433,7 @@ export function gasStation(style, rng, w, d) {
   for (let i = 0; i < islands; i++) {
     const x = -cw / 2 + (i + 0.5) * (cw / islands);
     xs.push(x);
-    g.add(box(0.8, 0.2, 2.4, style.material('concrete', 0xb8b4aa), [x, 0.1, cz]));       // island
+    g.add(box(0.8, 0.2, 2.4, style.material('concrete', 0xb8b4aa), [x, 0.04 + GAP + 0.1, cz])); // island on the forecourt
     g.add(box(0.6, 1.6, 0.5, style.material('metal', 0xf2f2ee), [x, 1.0, cz]));           // pump
     g.add(box(0.62, 0.35, 0.52, red, [x, 1.6, cz]));
     g.add(box(0.35, 0.25, 0.04, style.material('light', 0x9ad8f0), [x, 1.2, cz + 0.27]));

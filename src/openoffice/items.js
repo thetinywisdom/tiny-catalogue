@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { PALETTE } from '../styles/palette.js';
 import { mulberry32 } from '../lib/rng.js';
 import { lobe, shadeMaterial } from '../lib/foliage.js';
+import { GAP } from '../lib/ground.js';
 import { mergeByMaterial } from '../lib/merge.js';
 import manifest from '../../public/openoffice-kit/manifest.json';
 import { openOfficePlan } from './arrange.js';
@@ -122,8 +123,8 @@ const BUILDERS = {
     addCyl(g, 0.14, 0.14, 0.02, leg, [0, 0.015, 0], { seg: 6 });
   },
   rug(g, style) {
-    addBox(g, 2.6, 0.012, 1.7, mat(style, 'cloth:Sand'), [0, 0.006, 0]);
-    addBox(g, 2.3, 0.004, 1.4, mat(style, 'cloth:Sage'), [0, 0.014, 0]);
+    addBox(g, 2.6, 0.012, 1.7, mat(style, 'cloth:Sand'), [0, GAP + 0.006, 0]);
+    addBox(g, 2.3, 0.008, 1.4, mat(style, 'cloth:Sage'), [0, GAP + 0.02, 0]);
   },
   floor_lamp(g, style) {
     const metal = mat(style, 'darkMetal:Ink');
@@ -382,7 +383,7 @@ export function buildOpenOfficeRoom(style, { cutaway = false, seed = 0 } = {}) {
         [-6 + (i + 0.5) * (12 / nx), (SLAB_TOP + TILE_TOP) / 2, -5 + (j + 0.5) * (10 / nz)]);
     }
   }
-  addBox(body, 12, 0.22, 10, mat(style, 'concrete:Gray'), [0, SLAB_TOP - 0.11, 0]);
+  addBox(body, 12, 0.22, 10, mat(style, 'concrete:Gray'), [0, SLAB_TOP - GAP - 0.11, 0]);
 
   const hole = (a0, a1, y0, h) => ({ a0: a0 + LIP, a1: a1 - LIP, y0: y0 + LIP, y1: y0 + h - LIP });
   const doorSpan = [-0.7, -0.7 + DOOR.w];

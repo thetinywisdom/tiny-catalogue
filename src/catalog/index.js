@@ -18,6 +18,7 @@ import { bird } from '../props/birds.js';
 import { park } from '../city/park.js';
 import { PROP_GROUPS } from '../props/index.js';
 import { wire } from '../props/extras.js';
+import { LAYER_H, toppedBox } from '../lib/ground.js';
 import { tiledBox } from '../props/util.js';
 import { OFFICE_ITEMS, buildOfficeItem, buildOfficeRoom } from '../office/items.js';
 import { DINER_ITEMS, buildDinerItem, buildDinerRoom } from '../diner/items.js';
@@ -289,7 +290,8 @@ const groundAssets = [{
   size: [4, 4],
   build(p, style) {
     const g = new THREE.Group();
-    g.add(tiledBox(p.w, 0.02, p.d, style.material('concrete', p.color), [0, 0.01, 0]));
+    // Bottom on the caller's y. Areas lift it by the shell top plus GAP.
+    g.add(toppedBox(p.w, p.d, style.material('concrete', p.color), 0, LAYER_H, 0, LAYER_H));
     return withColliders(g, []);
   },
 }, {

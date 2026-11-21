@@ -429,6 +429,16 @@ Object.assign(window, {
     resolve: (id, params) => CATALOG[id]?.resolve?.(params ?? {}),
     /** Orbit the preview camera by `az` radians. */
     orbit: (az) => { const t = controls.target; camera.position.sub(t).applyAxisAngle(new THREE.Vector3(0, 1, 0), az).add(t); controls.update(); },
+    /** Current preview camera, for a repeatable render. */
+    pose: () => ({ position: camera.position.toArray(), target: controls.target.toArray() }),
+    /** Place the preview camera and stop the one-shot auto frame. */
+    look(position, target) {
+      reframe = false;
+      camera.position.set(position[0], position[1], position[2]);
+      controls.target.set(target[0], target[1], target[2]);
+      camera.lookAt(target[0], target[1], target[2]);
+      controls.update();
+    },
     get itemCell() { return itemCell; },
     BLOCK_SIZE, createAreaBlock,
     /**

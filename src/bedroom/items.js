@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { PALETTE } from '../styles/palette.js';
 import { mulberry32 } from '../lib/rng.js';
 import { lobe, shadeMaterial } from '../lib/foliage.js';
+import { GAP } from '../lib/ground.js';
 import { mergeByMaterial } from '../lib/merge.js';
 import manifest from '../../public/bedroom-kit/manifest.json';
 import layout from '../../public/bedroom-kit/layout.json';
@@ -158,8 +159,9 @@ const BUILDERS = {
     addBox(g, 0.16, h * 0.92, 0.025, cloth, [w / 2 - 0.1, h * 0.46, 0.05]);
   },
   rug(g, style, look) {
-    addBox(g, 1.55, 0.015, 1.85, mat(style, look?.rug ?? 'cloth:Dusty rose'), [0, 0.008, 0]);
-    addBox(g, 1.25, 0.006, 1.5, mat(style, look?.rugBand ?? 'cloth:Sand'), [0, 0.016, 0]);
+    // Placed 4 mm under the floor origin, so the cloth starts higher than GAP.
+    addBox(g, 1.55, 0.012, 1.85, mat(style, look?.rug ?? 'cloth:Dusty rose'), [0, 0.02, 0]);
+    addBox(g, 1.25, 0.008, 1.5, mat(style, look?.rugBand ?? 'cloth:Sand'), [0, 0.034, 0]);
   },
   books(g, style) {
     const spines = ['paint:Navy', 'paint:Dusty rose', 'paint:Sage'];
@@ -300,7 +302,7 @@ export function buildBedroomRoom(style, { cutaway = false, seed = 0 } = {}) {
   // One solid wood floor. No planks.
   const floorH = TILE_TOP - SLAB_TOP;
   addBox(body, RW, floorH, RD, mat(style, 'wood:Tan'), [0, (SLAB_TOP + TILE_TOP) / 2, 0]);
-  addBox(body, RW, 0.18, RD, mat(style, 'concrete:Gray'), [0, SLAB_TOP - 0.09, 0]);
+  addBox(body, RW, 0.18, RD, mat(style, 'concrete:Gray'), [0, SLAB_TOP - GAP - 0.09, 0]);
 
   const west = -RW / 2 + TH / 2;
   const east = RW / 2 - TH / 2;

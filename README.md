@@ -59,7 +59,8 @@ Each area is a 32 × 32 m block centred on its own origin. +z is north. The
 group's `userData.block` is `{ id, footprint: [32, 32], edges }`, and
 `edges.n`, `edges.e`, `edges.s`, `edges.w` are `street` or `sidewalk`. A
 street edge is a 3 m strip whose top is at 4 cm. A sidewalk edge is 1.5 m
-with its top at 6 cm. Both are flush with the footprint.
+with its top at 6 cm. Both are flush with the footprint. Anything laid on
+the interior (a road, a path, paving) sits 1.2 cm above that shell.
 
 Put the next block one footprint away. Two street edges then make one 6 m
 road, and two sidewalk edges make one 3 m pavement, with no step at the join.

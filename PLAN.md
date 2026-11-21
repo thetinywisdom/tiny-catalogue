@@ -56,6 +56,11 @@ renderer. People stay faceless. Cats stay faceless.
    back on their own tabs, with the same builders, manifests, layouts and
    seeds. The City, the character creator, the cat lab, the walk lab and
    the standalone interiors previews (GLBs, the office blend) stay out.
+7. **Floors do not fight.** Area street edges were the same plane as the
+   block shell, so with PS1 off the roads drew as flickering triangles and
+   streaks. The shell stops at the edges (street top still 4 cm, sidewalk
+   top still 6 cm). Paths, paving, rugs, mats, tactile bands and manholes
+   sit 1.2 cm above the surface under them. Flat ground does not cast.
 
 The asset library was copied from Tiny City Builder (`thetinywisdom/character-creator`).
 That history (town generation, crowd, weather, interactions) is not in this

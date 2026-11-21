@@ -462,7 +462,10 @@ A game places one with `createAsset('area.shotengai', { seed: 1 }, style)`
 - Each edge is a sidewalk (1.5 m, top at 6 cm) or a street (3 m, top at 4 cm),
   flush with the footprint. +z is north. Two blocks with the same edge type
   meet on that line at the same height: two street edges make a 6 m road,
-  two sidewalk edges make a 3 m pavement.
+  two sidewalk edges make a 3 m pavement. The interior shell stops at those
+  strips. A road, a path or a paving on the interior sits 1.2 cm above the
+  shell, and a decal (manhole, zebra bar, rug, mat, tactile band) sits 1.2 cm
+  above the surface it is painted on. Flat ground does not cast a shadow.
 - `seed` is the layout. The same seed rebuilds the same places. Density
   (Sparse, Normal, Busy) changes how many shops, houses, trees or props are
   out. People and Cats turn those parts on or off. People stay faceless. Cats

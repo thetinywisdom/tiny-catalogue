@@ -43,6 +43,7 @@ src/meeting, src/bedroom, src/studio, src/cafe, src/classroom,
 src/openoffice, src/ramen, src/kitchen, src/library, src/dojo, src/station
                             furnished-room builders (catalogue tabs)
 public/<kit>-kit/           manifest.json and layout.json each room reads
+src/lib/ground.js           stacked floors: GAP, topped slabs, decals, no self-shadow
 src/lib/roomLayout.js, roomPlan.js, roomSeed.js
                             shared seeded-layout checks
 src/render/ps1.js           low-res render, dither, outlines
@@ -129,6 +130,13 @@ is `{ id, footprint, edges }` with `edges.n/e/s/w` of `street` (3 m) or
 `sidewalk` (1.5 m). +z is north. `createAreaBlock(id, params, style)` builds
 one. See README for laying them on a grid.
 
+The shell, the edge strips and anything laid on them do not share a volume.
+Street tops stay at 4 cm and sidewalk tops at 6 cm, so neighbouring blocks
+still meet. A road, path or paving on the interior sits 1.2 cm above the
+shell (`GAP` in `src/lib/ground.js`). Flat ground does not cast a shadow.
+`node scripts/check-ground.mjs` builds the areas and fails if two ground
+slabs overlap.
+
 Nobori and birds move because `tickProps` already walks the item. People
 and cats set `userData.tick` on a carrier group, which `tickProps` calls.
 The walk pose rewrites the rig position, so the carrier is what stands on
@@ -203,6 +211,7 @@ No unit test suite. Before committing:
   scrolls the panel.
 - `window.__cc`: `state`, `setView('catalog'|'item')`, `openItem(id, params)`,
   `CATALOG`, `ASSETS`, `resolve(id, params)`, `createAsset`, `orbit(az)`,
+  `pose()`, `look(position, target)` (place the preview camera),
   `human`, `itemCell`, `setPs1(on)` (PS1 look, no reload).
 
 Check desktop (1280×720) and phone (390×844).

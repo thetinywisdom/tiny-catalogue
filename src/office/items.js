@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { PALETTE } from '../styles/palette.js';
 import { mulberry32 } from '../lib/rng.js';
 import { lobe, shadeMaterial } from '../lib/foliage.js';
+import { GAP } from '../lib/ground.js';
 import { mergeByMaterial } from '../lib/merge.js';
 import manifest from '../../public/office-kit/manifest.json';
 import { officeLayout } from './seedLayout.js';
@@ -230,12 +231,12 @@ const BUILDERS = {
     }
   },
   rug(g, style, look) {
-    addBox(g, 3.0, 0.01, 2.0, mat(style, `cloth:${look?.rug?.[0] ?? 'Sand'}`), [0, 0.005, 0]);
-    addBox(g, 2.8, 0.002, 1.8, mat(style, `cloth:${look?.rug?.[1] ?? 'Tan'}`), [0, 0.011, 0]);
+    addBox(g, 3.0, 0.012, 2.0, mat(style, `cloth:${look?.rug?.[0] ?? 'Sand'}`), [0, GAP + 0.006, 0]);
+    addBox(g, 2.8, 0.008, 1.8, mat(style, `cloth:${look?.rug?.[1] ?? 'Tan'}`), [0, GAP + 0.02, 0]);
   },
   rug_large(g, style, look) {
-    addBox(g, 3.5, 0.01, 2.4, mat(style, `cloth:${look?.rug?.[0] ?? 'Sand'}`), [0, 0.005, 0]);
-    addBox(g, 3.3, 0.002, 2.2, mat(style, `cloth:${look?.rug?.[1] ?? 'Tan'}`), [0, 0.011, 0]);
+    addBox(g, 3.5, 0.012, 2.4, mat(style, `cloth:${look?.rug?.[0] ?? 'Sand'}`), [0, GAP + 0.006, 0]);
+    addBox(g, 3.3, 0.008, 2.2, mat(style, `cloth:${look?.rug?.[1] ?? 'Tan'}`), [0, GAP + 0.02, 0]);
   },
   whiteboard_mobile(g, style) {
     const metal = mat(style, 'metal:Stone');

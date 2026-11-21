@@ -2,8 +2,9 @@ import * as THREE from 'three';
 import { createGait, poseGait, setGaitEngine, stepGait, tuneOf, WALK_SPEED } from '../anim/gait.js';
 import { createCatGait, poseCat, stepCatGait } from '../anim/catGait.js';
 import { buildPlayground } from '../city/playground.js';
+import { GAP, LAYER_H, SLAB_H, addSandbox, markGround, toppedBox } from '../lib/ground.js';
 import { mulberry32 } from '../lib/rng.js';
-import { box, tiledBox } from '../props/util.js';
+import { box } from '../props/util.js';
 import { VEHICLE_COLORS } from '../props/vehicles.js';
 import { paletteHex } from '../styles/palette.js';
 import { CAT_EARS, CAT_FUR, CAT_PATTERNS, CAT_TAILS } from '../subjects/cat.js';
@@ -100,13 +101,94 @@ function put(g, cols, obj, x, z, rotY = 0) {
   return obj;
 }
 
-function slab(g, style, w, h, d, role, color, x, y, z) {
-  g.add(tiledBox(w, h, d, color == null ? style.material(role) : style.material(role, color), [x, y, z], 4));
+// Interior top matches a street edge, so the shell and the road meet flush
+// where they abut. A sidewalk edge stays 2 cm higher: that is the curb.
+const INTERIOR_TOP = EDGE_TOP.street;
+
+function addTop(g, w, d, material, x, top, z, h = SLAB_H) {
+  if (w < 0.02 || d < 0.02) return top;
+  g.add(toppedBox(w, d, material, x, top, z, h));
+  return top;
 }
 
-function kerb(g, style, x, z, len, alongX) {
+function fillRect(g, material, x0, x1, z0, z1, top) {
+  addTop(g, x1 - x0, z1 - z0, material, (x0 + x1) / 2, top, (z0 + z1) / 2);
+}
+
+// Draw [x0,x1] × [z0,z1] except `hole`, so a building pad can sit in the
+// opening instead of on a second copy of the same plane.
+function fillExcept(g, material, x0, x1, z0, z1, hole, top) {
+  if (!hole) { fillRect(g, material, x0, x1, z0, z1, top); return; }
+  const hx0 = Math.max(hole.x0, x0);
+  const hx1 = Math.min(hole.x1, x1);
+  const hz0 = Math.max(hole.z0, z0);
+  const hz1 = Math.min(hole.z1, z1);
+  if (hx1 - hx0 < 0.05 || hz1 - hz0 < 0.05) { fillRect(g, material, x0, x1, z0, z1, top); return; }
+  fillRect(g, material, x0, x1, z0, hz0, top);
+  fillRect(g, material, x0, x1, hz1, z1, top);
+  fillRect(g, material, x0, hx0, hz0, hz1, top);
+  fillRect(g, material, hx1, x1, hz0, hz1, top);
+}
+
+// The shell is the interior only. Each edge strip stops at the corners, and
+// the corner is its own piece (a street wins, so a road runs unbroken).
+// Nothing shares a plan rectangle with anything else at the same depth.
+// `hole` is a building pad the interior should not cover.
+function layBlock(g, style, edges, role, color, hole = null) {
+  const width = (key) => EDGE_W[edges[key]] ?? 0;
+  const wW = width('w');
+  const wE = width('e');
+  const wS = width('s');
+  const wN = width('n');
+  const iw = BLOCK_SIZE - wW - wE;
+  const id = BLOCK_SIZE - wS - wN;
+  const ix = (wW - wE) / 2;
+  const iz = (wS - wN) / 2;
+  const baseMat = color == null ? style.material(role) : style.material(role, color);
+  fillExcept(g, baseMat, ix - iw / 2, ix + iw / 2, iz - id / 2, iz + id / 2, hole, INTERIOR_TOP);
+
+  const matOf = (kind) => (kind === 'street'
+    ? style.material('road')
+    : style.material('sidewalk', paletteHex('Sand')));
+  const span = (kind, axis, sign, length, along) => {
+    const w = EDGE_W[kind];
+    const across = sign * (HALF - w / 2);
+    if (axis === 'z') addTop(g, length, w, matOf(kind), along, EDGE_TOP[kind], across);
+    else addTop(g, w, length, matOf(kind), across, EDGE_TOP[kind], along);
+  };
+  if (edges.s) span(edges.s, 'z', -1, iw, ix);
+  if (edges.n) span(edges.n, 'z', 1, iw, ix);
+  if (edges.w) span(edges.w, 'x', -1, id, iz);
+  if (edges.e) span(edges.e, 'x', 1, id, iz);
+
+  const corner = (zKey, xKey, sz, sx) => {
+    const kz = edges[zKey];
+    const kx = edges[xKey];
+    if (!kz || !kx) return;
+    const kind = kz === 'street' || kx === 'street' ? 'street' : 'sidewalk';
+    const wz = EDGE_W[kz];
+    const wx = EDGE_W[kx];
+    addTop(g, wx, wz, matOf(kind), sx * (HALF - wx / 2), EDGE_TOP[kind], sz * (HALF - wz / 2));
+  };
+  corner('s', 'w', -1, -1);
+  corner('s', 'e', -1, 1);
+  corner('n', 'w', 1, -1);
+  corner('n', 'e', 1, 1);
+}
+
+/** A thin surface on the interior. Level 1 is the first layer above the shell. */
+function overlay(g, style, w, d, role, color, x, z, level = 1) {
+  const top = INTERIOR_TOP + level * (GAP + LAYER_H);
+  const mat = color == null ? style.material(role) : style.material(role, color);
+  addTop(g, w, d, mat, x, top, z, LAYER_H);
+  return top;
+}
+
+function kerb(g, style, x, z, len, alongX, bottom) {
+  const h = 0.08;
   const m = style.material('concrete', paletteHex('Light gray'));
-  g.add(alongX ? box(len, 0.1, 0.16, m, [x, 0.06, z]) : box(0.16, 0.1, len, m, [x, 0.06, z]));
+  const y = bottom + h / 2;
+  g.add(markGround(alongX ? box(len, h, 0.14, m, [x, y, z]) : box(0.14, h, len, m, [x, y, z])));
 }
 
 function addBuilding(g, cols, style, id, seed, w, d, x, z, rot, extra = {}) {
@@ -282,27 +364,6 @@ function crowd(g, cols, style, rngP, rngC, { rects, people = 0, cats = 0, axis =
   });
 }
 
-function blockBase(g, style, role, color) {
-  slab(g, style, BLOCK_SIZE, 0.04, BLOCK_SIZE, role, color, 0, 0.02, 0);
-}
-
-function blockEdges(g, style, edges) {
-  const matOf = (kind) => (kind === 'street'
-    ? style.material('road')
-    : style.material('sidewalk', paletteHex('Sand')));
-  const draw = (kind, axis, sign) => {
-    const w = EDGE_W[kind];
-    const h = 0.08;
-    const y = EDGE_TOP[kind] - h / 2;
-    const mat = matOf(kind);
-    if (axis === 'z') g.add(tiledBox(BLOCK_SIZE, h, w, mat, [0, y, sign * (HALF - w / 2)], 4));
-    else g.add(tiledBox(w, h, BLOCK_SIZE, mat, [sign * (HALF - w / 2), y, 0], 4));
-  };
-  const sides = [['s', 'z', -1], ['n', 'z', 1], ['w', 'x', -1], ['e', 'x', 1]];
-  for (const [key, axis, sign] of sides) if (edges[key] === 'sidewalk') draw('sidewalk', axis, sign);
-  for (const [key, axis, sign] of sides) if (edges[key] === 'street') draw('street', axis, sign);
-}
-
 function addTree(g, cols, style, rng, variant, x, z, seed) {
   const t = createAsset('nature.tree', { variant, seed: (seed >>> 0) || 1 }, style);
   const s = 0.72 + rng() * 0.28;
@@ -333,8 +394,8 @@ function shotengai(p, style) {
   const people = stream(p.seed, 2);
   const cats = stream(p.seed, 3);
   const edges = { n: 'sidewalk', e: 'street', s: 'sidewalk', w: 'street' };
-  blockBase(g, style, 'sidewalk', paletteHex('Sand'));
-  slab(g, style, 24, 0.02, 3.4, 'concrete', paletteHex('Stone'), 0, 0.045, 0);
+  layBlock(g, style, edges, 'sidewalk', paletteHex('Sand'));
+  overlay(g, style, 24, 3.4, 'concrete', paletteHex('Stone'), 0, 0);
 
   const perSide = band(p.Density, 2, 3, 4);
   const span = 22;
@@ -382,7 +443,6 @@ function shotengai(p, style) {
     cats: p.Cats === 'Off' ? 0 : band(p.Density, 1, 2, 3),
     axis: 'x',
   });
-  blockEdges(g, style, edges);
   return finish();
 }
 
@@ -392,10 +452,12 @@ function lane(p, style) {
   const people = stream(p.seed, 12);
   const cats = stream(p.seed, 13);
   const edges = { n: 'sidewalk', e: 'street', s: 'sidewalk', w: 'street' };
-  blockBase(g, style, 'grass', null);
-  slab(g, style, 26, 0.03, 4.4, 'road', null, 0, 0.03, 0);
-  for (const s of [-1, 1]) slab(g, style, 26, 0.025, 1.7, 'sidewalk', paletteHex('Sand'), 0, 0.04, s * 3.15);
-  for (const s of [-1, 1]) kerb(g, style, 0, s * 2.22, 24, true);
+  layBlock(g, style, edges, 'grass', null);
+  // Road and pavements sit on the grass and do not cover each other.
+  // The road is 4.2 m (z ±2.1); each pavement is 1.5 m starting at |z| 2.45.
+  overlay(g, style, 26, 4.2, 'road', null, 0, 0);
+  for (const s of [-1, 1]) overlay(g, style, 24, 1.5, 'sidewalk', paletteHex('Sand'), 0, s * 3.2);
+  for (const s of [-1, 1]) kerb(g, style, 0, s * 2.28, 24, true, INTERIOR_TOP + GAP);
 
   const perSide = band(p.Density, 2, 3, 3);
   const span = 22;
@@ -454,7 +516,6 @@ function lane(p, style) {
     axis: 'x',
     pool: [...ADULTS, 'human.boy', 'human.girl'],
   });
-  blockEdges(g, style, edges);
   return finish();
 }
 
@@ -464,16 +525,18 @@ function station(p, style) {
   const people = stream(p.seed, 22);
   const cats = stream(p.seed, 23);
   const edges = { n: 'sidewalk', e: 'street', s: 'sidewalk', w: 'street' };
-  blockBase(g, style, 'sidewalk', paletteHex('Stone'));
-  slab(g, style, 26, 0.03, 5.6, 'road', null, 0, 0.03, 10.2);
-  kerb(g, style, 0, 7.35, 24, true);
-  kerb(g, style, 0, 13.05, 24, true);
+  layBlock(g, style, edges, 'sidewalk', paletteHex('Stone'));
+  // Road is 5.2 m deep at z = 10.2, so z runs 7.6..12.8. Kerbs sit in the gap.
+  const roadTop = overlay(g, style, 26, 5.2, 'road', null, 0, 10.2);
+  kerb(g, style, 0, 7.46, 24, true, INTERIOR_TOP + GAP);
+  kerb(g, style, 0, 12.94, 24, true, INTERIOR_TOP + GAP);
 
   // Post office stands in for a station building. See the file header.
   addBuilding(g, cols, style, 'building.postOffice', salt(p.seed, 1), 16, 11, 0, -6.6, 0);
 
-  const cross = createAsset('prop.crosswalk', { variant: 'Zebra', length: 5.6 }, style);
-  put(g, cols, cross, 8.5, 10.4, 0);
+  const cross = createAsset('prop.crosswalk', { variant: 'Zebra', length: 4.8 }, style);
+  cross.position.y = roadTop;
+  put(g, cols, cross, 8.5, 10.2, 0);
 
   put(g, cols, createAsset('prop.busStop', { variant: 'Shelter' }, style), -12.2, 5.4, 0);
   put(g, cols, createAsset('prop.vendingMachine', { variant: pick(rng, ['Blue', 'White']) }, style), -12.4, 3.2, Math.PI);
@@ -502,7 +565,6 @@ function station(p, style) {
     axis: 'x',
     pool: ['human.salaryman', 'human.woman', 'human.man', 'human.grandma', 'human.schoolgirl', 'human.grandpa'],
   });
-  blockEdges(g, style, edges);
   return finish();
 }
 
@@ -512,10 +574,13 @@ function shrineCorner(p, style) {
   const people = stream(p.seed, 32);
   const cats = stream(p.seed, 33);
   const edges = { n: 'sidewalk', e: 'sidewalk', s: 'sidewalk', w: 'sidewalk' };
-  blockBase(g, style, 'grass', null);
-  // A stone path out of the shrine precinct into the park.
-  slab(g, style, 2.2, 0.03, 12, 'concrete', paletteHex('Stone'), -7.2, 0.04, 6.2);
-  slab(g, style, 14, 0.03, 2.2, 'concrete', paletteHex('Stone'), 0.5, 0.045, 8.6);
+  // The shrine's gravel is its own ground. Leave that rectangle out of the grass.
+  layBlock(g, style, edges, 'grass', null, { x0: -13.2, x1: 0.8, z0: -10.2, z1: 3.8 });
+  // A stone path out of the shrine precinct into the park. The cross is two
+  // pieces that meet at an edge, so they do not stack.
+  // Stops at the shrine gravel (z = 3.8) so it does not sit on the stepping stones.
+  overlay(g, style, 2.2, 8.35, 'concrete', paletteHex('Stone'), -7.2, 8.025);
+  overlay(g, style, 13.55, 2.2, 'concrete', paletteHex('Stone'), 0.725, 8.6);
 
   addBuilding(g, cols, style, 'building.shrine', salt(p.seed, 1), 14, 14, -6.2, -3.2, 0);
 
@@ -525,8 +590,7 @@ function shrineCorner(p, style) {
   g.add(play);
   cols.push({ x: 7.4, z: 1.4, hw: 4.6, hd: 4.2 });
   // The same sandbox the park puts beside the slide, in playground-local space.
-  play.add(box(2.6, 0.22, 2.4, style.material('wood'), [-2.4, 0.11, 2.8]));
-  play.add(box(2.3, 0.16, 2.1, style.material('sidewalk', paletteHex('Sand')), [-2.4, 0.2, 2.8]));
+  addSandbox(play, -2.4, 2.8, 2.6, 2.4, style.material('wood'), style.material('sidewalk', paletteHex('Sand')), INTERIOR_TOP);
 
   const grove = band(p.Density, 4, 6, 8);
   const kinds = ['Zelkova', 'Pine', 'Black pine', 'Cherry blossom', 'Japanese maple', 'Old giant', 'Ginkgo'];
@@ -570,7 +634,6 @@ function shrineCorner(p, style) {
     axis: 'x',
     pool: [...KIDS, ...ADULTS],
   });
-  blockEdges(g, style, edges);
   return finish();
 }
 
@@ -580,14 +643,15 @@ function oldSquare(p, style) {
   const people = stream(p.seed, 42);
   const cats = stream(p.seed, 43);
   const edges = { n: 'sidewalk', e: 'sidewalk', s: 'sidewalk', w: 'sidewalk' };
-  blockBase(g, style, 'concrete', paletteHex('Stone'));
+  layBlock(g, style, edges, 'concrete', paletteHex('Stone'));
   const pave = createAsset('ground.paving', { w: 9, d: 9, color: paletteHex('Light gray') }, style);
-  pave.position.y = 0.02;
+  pave.position.y = INTERIOR_TOP + GAP;
   g.add(pave);
-  kerb(g, style, 0, 4.6, 9.4, true);
-  kerb(g, style, 0, -4.6, 9.4, true);
-  kerb(g, style, 4.6, 0, 9.4, false);
-  kerb(g, style, -4.6, 0, 9.4, false);
+  const curb = INTERIOR_TOP + GAP;
+  kerb(g, style, 0, 4.66, 9, true, curb);
+  kerb(g, style, 0, -4.66, 9, true, curb);
+  kerb(g, style, 4.66, 0, 9, false, curb);
+  kerb(g, style, -4.66, 0, 9, false, curb);
 
   const lotD = 7.2;
   const zRow = 4.6 + lotD / 2;
@@ -626,7 +690,6 @@ function oldSquare(p, style) {
     axis: 'x',
     pool: ADULTS,
   });
-  blockEdges(g, style, edges);
   return finish();
 }
 
@@ -645,8 +708,8 @@ function alley(p, style) {
   const people = stream(p.seed, 52);
   const cats = stream(p.seed, 53);
   const edges = { n: 'sidewalk', e: 'street', s: 'sidewalk', w: 'street' };
-  blockBase(g, style, 'concrete', paletteHex('Gray'));
-  slab(g, style, 26, 0.02, 2.4, 'road', null, 0, 0.04, 0);
+  layBlock(g, style, edges, 'concrete', paletteHex('Gray'));
+  const roadTop = overlay(g, style, 26, 2.2, 'road', null, 0, 0);
 
   const perSide = band(p.Density, 2, 3, 3);
   const span = 22;
@@ -675,10 +738,12 @@ function alley(p, style) {
 
   const covers = band(p.Density, 1, 2, 3);
   spread(covers, 8).forEach((x, i) => {
-    put(g, cols, createAsset('prop.manhole', {
+    const cover = createAsset('prop.manhole', {
       variant: ['Flower', 'Wave', 'Grid'][i % 3],
       seed: salt(p.seed, 120 + i),
-    }, style), x, i % 2 ? 0.35 : -0.25, 0);
+    }, style);
+    cover.position.y = roadTop;
+    put(g, cols, cover, x, i % 2 ? 0.35 : -0.25, 0);
   });
 
   put(g, cols, createAsset('prop.trashBin', { variant: 'Round bin' }, style), -span / 2 + 0.2, -1.15, 0);
@@ -697,7 +762,6 @@ function alley(p, style) {
     axis: 'x',
     pool: ADULTS,
   });
-  blockEdges(g, style, edges);
   return finish();
 }
 

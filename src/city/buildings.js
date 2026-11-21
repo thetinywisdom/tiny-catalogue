@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { signTexture } from '../lib/textures.js';
+import { GAP, markGround } from '../lib/ground.js';
 import { box, cyl, face } from '../props/util.js';
 import { paintedWindow, shopWindow } from './interiors.js';
 import { FACADES, roofClutter, roofSign, sideWindows, wrapFacades } from './facades.js';
@@ -405,11 +406,13 @@ export function shrine(style, rng, w, d) {
   const g = new THREE.Group();
   const colliders = [];
   const sd = side(rng);
-  g.add(box(w, 0.04, d, style.material('concrete', pick(rng, [0xc9c4b6, 0xd8d2c4, 0xb8b4a8])), [0, 0.02, 0]));          // gravel
+  g.add(markGround(box(w, 0.04, d, style.material('concrete', pick(rng, [0xc9c4b6, 0xd8d2c4, 0xb8b4a8])), [0, 0.02, 0]))); // gravel, top 0.04
   const pathMat = style.material('concrete', 0x9b978c);
   const hallD = 3.6 + rng() * 1.6, hallZ = -d / 2 + 1 + hallD / 2;
   const pathLen = d / 2 - (hallZ + hallD / 2);
-  for (let z = hallZ + hallD / 2 + 0.6; z < d / 2 - 0.3; z += 0.9) g.add(box(1.4, 0.06, 0.75, pathMat, [0, 0.05, z]));
+  for (let z = hallZ + hallD / 2 + 0.6; z < d / 2 - 0.3; z += 0.9) {
+    g.add(markGround(box(1.4, 0.03, 0.75, pathMat, [0, 0.04 + GAP + 0.015, z])));
+  }
   // one or two torii along the path: vermilion, or plain stone
   const toriiCol = pick(rng, [0xd2452e, 0xd2452e, 'stone']);
   const gates = between(rng, 1, 2);
@@ -543,13 +546,14 @@ export function school(style, rng, w, d) {
   // sports ground with a white running track outline
   const gd = gz1 - gz0;
   if (gd > 4) {
-    g.add(box(w - 2, 0.04, gd, style.material('concrete', pick(rng, [0xc9a978, 0xb89a70, 0x8aa86a])), [0, 0.03, (gz0 + gz1) / 2]));
+    g.add(markGround(box(w - 2, 0.04, gd, style.material('concrete', pick(rng, [0xc9a978, 0xb89a70, 0x8aa86a])), [0, 0.02, (gz0 + gz1) / 2])));
     const line = style.material('signage', 0xf4f2ea);
     const tw = Math.min(w - 8, 24), td = Math.max(2, gd - 4), tz = (gz0 + gz1) / 2;
-    g.add(box(tw, 0.02, 0.12, line, [0, 0.06, tz - td / 2]));
-    g.add(box(tw, 0.02, 0.12, line, [0, 0.06, tz + td / 2]));
-    g.add(box(0.12, 0.02, td, line, [-tw / 2, 0.06, tz]));
-    g.add(box(0.12, 0.02, td, line, [tw / 2, 0.06, tz]));
+    const lineY = 0.04 + GAP + 0.006;
+    g.add(markGround(box(tw, 0.012, 0.12, line, [0, lineY, tz - td / 2])));
+    g.add(markGround(box(tw, 0.012, 0.12, line, [0, lineY, tz + td / 2])));
+    g.add(markGround(box(0.12, 0.012, Math.max(0.2, td - 0.12), line, [-tw / 2, lineY, tz])));
+    g.add(markGround(box(0.12, 0.012, Math.max(0.2, td - 0.12), line, [tw / 2, lineY, tz])));
   }
   // low fence along the street, open for the gate
   const fenceZ = d / 2 - 0.3, gap = 3, gx0 = pick(rng, [0, sd * w * 0.25]);

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { PALETTE } from '../styles/palette.js';
+import { GAP } from '../lib/ground.js';
 import { mergeByMaterial } from '../lib/merge.js';
 import manifest from '../../public/minimarket-kit/manifest.json';
 import { minimarketLayout } from './layout.js';
@@ -459,15 +460,15 @@ export function buildMinimarketRoom(style, { cutaway = false, seed = 0 } = {}) {
         [-W / 2 + i + 0.5, (SLAB_TOP + TILE_TOP) / 2, -D / 2 + j + 0.5]);
     }
   }
-  addBox(body, W, 0.22, D, mat(style, 'concrete:Gray'), [0, SLAB_TOP - 0.11, 0]);
+  addBox(body, W, 0.22, D, mat(style, 'concrete:Gray'), [0, SLAB_TOP - GAP - 0.11, 0]);
   // Aisle guides. Seed 0 keeps the hand-placed stripes; a seeded room follows its shelves.
   if (plan.stripes) {
     for (const s of plan.stripes) {
-      addBox(body, 0.08, 0.008, s.len, mat(style, s.key), [s.x, TILE_TOP + 0.005, s.z]);
+      addBox(body, 0.08, 0.012, s.len, mat(style, s.key), [s.x, TILE_TOP + GAP + 0.006, s.z]);
     }
   } else {
-    addBox(body, 0.08, 0.008, 2.4, mat(style, 'paint:Navy'), [-2.55, TILE_TOP + 0.005, -1.1]);
-    addBox(body, 0.08, 0.008, 2.4, mat(style, 'paint:Butter'), [0.55, TILE_TOP + 0.005, -1.1]);
+    addBox(body, 0.08, 0.012, 2.4, mat(style, 'paint:Navy'), [-2.55, TILE_TOP + GAP + 0.006, -1.1]);
+    addBox(body, 0.08, 0.012, 2.4, mat(style, 'paint:Butter'), [0.55, TILE_TOP + GAP + 0.006, -1.1]);
   }
 
   const winHoles = (spans, y0) => spans.map(([a0, a1]) => ({

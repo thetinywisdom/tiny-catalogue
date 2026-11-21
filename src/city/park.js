@@ -3,7 +3,8 @@ import { bench, streetLamp, trashBin } from '../props/furniture.js';
 import { vendingMachine } from '../props/extras.js';
 import { tree } from '../subjects/tree.js';
 import { defaultsFor } from '../viewer/params.js';
-import { box, tiledBox } from '../props/util.js';
+import { GAP, LAYER_H, addSandbox, toppedBox } from '../lib/ground.js';
+import { box } from '../props/util.js';
 import { PLAY_AT, buildPlayground } from './playground.js';
 
 // A Japanese neighbourhood park (公園): grass, a cross of paths, trees round
@@ -17,10 +18,16 @@ export function park(style, rng, w, d) {
   const solid = (obj, cw, cd) => {
     colliders.push({ x: obj.position.x, z: obj.position.z, hw: cw / 2, hd: cd / 2 });
   };
-  g.add(tiledBox(w, 0.06, d, style.material('grass'), [0, 0.03, 0]));
+  const grassTop = 0.05;
+  g.add(toppedBox(w, d, style.material('grass'), 0, grassTop, 0, 0.05, 6));
   const path = style.material('sidewalk', 0xd8cdb4);
-  g.add(tiledBox(w, 0.08, 2.4, path, [0, 0.04, 0]));
-  g.add(tiledBox(2.4, 0.08, d, path, [0, 0.04, 0]));
+  const pathTop = grassTop + GAP + LAYER_H;
+  // The cross is three pieces that meet at edges. The middle belongs to the east-west path.
+  g.add(toppedBox(w, 2.4, path, 0, pathTop, 0, LAYER_H, 6));
+  const arm = d / 2 - 1.2;
+  const armZ = (d / 2 + 1.2) / 2;
+  g.add(toppedBox(2.4, arm, path, 0, pathTop, armZ, LAYER_H, 6));
+  g.add(toppedBox(2.4, arm, path, 0, pathTop, -armZ, LAYER_H, 6));
 
   // trees round the edge (a mix of the tree presets)
   const presets = Object.keys(tree.presets);
@@ -52,8 +59,7 @@ export function park(style, rng, w, d) {
   play.position.set(px, 0, pz);
   // swings, slide and climbing frame (playground.js), and a sandbox
   for (const c of buildPlayground(play, style)) colliders.push({ x: px + c.x, z: pz + c.z, hw: c.hw, hd: c.hd });
-  play.add(box(3, 0.25, 3, style.material('wood'), [-2.6, 0.12, 3.2]));
-  play.add(box(2.7, 0.27, 2.7, style.material('sidewalk', 0xe6d2a0), [-2.6, 0.12, 3.2]));
+  addSandbox(play, -2.6, 3.2, 3, 3, style.material('wood'), style.material('sidewalk', 0xe6d2a0), grassTop);
   g.add(play);
 
   // toilet hut and a vending machine in the opposite quarter
